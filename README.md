@@ -1,4 +1,4 @@
-# Diaaagram (a.k.a. react-diagram)
+# Diaglam
 
 A diagram drawing application which is demonstrating how we can utilize `React.js` and HTML `<canvas/>` to create an interactive drawing.
 
