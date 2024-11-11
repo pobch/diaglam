@@ -103,7 +103,13 @@ export function App() {
       // context.lineWidth = 5
       // context.strokeRect(0, 0, canvas.width / zoomLevel, canvas.height / zoomLevel)
 
-      const roughCanvas = rough.canvas(canvas, { options: { seed: CONFIG.SEED } })
+      const roughCanvas = rough.canvas(canvas, {
+        options: {
+          seed: CONFIG.SEED,
+          roughness: CONFIG.ROUGHNESS,
+          strokeWidth: CONFIG.STROKE_WIDTH,
+        },
+      })
       currentSnapshot.forEach((element) => {
         if (element.type === 'line' || element.type === 'rectangle' || element.type === 'arrow') {
           element.roughElements.forEach((roughElement) => {

@@ -11,7 +11,9 @@ import {
 } from './snapshotManipulation'
 import { CONFIG } from './config'
 
-const generator = rough.generator({ options: { seed: CONFIG.SEED } })
+const generator = rough.generator({
+  options: { seed: CONFIG.SEED, roughness: CONFIG.ROUGHNESS, strokeWidth: CONFIG.STROKE_WIDTH },
+})
 
 function createLineElementWithoutId({
   x1,

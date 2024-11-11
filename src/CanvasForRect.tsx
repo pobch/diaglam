@@ -11,7 +11,9 @@ import {
   TSnapshot,
 } from './snapshotManipulation'
 
-const generator = rough.generator({ options: { seed: CONFIG.SEED } })
+const generator = rough.generator({
+  options: { seed: CONFIG.SEED, roughness: CONFIG.ROUGHNESS, strokeWidth: CONFIG.STROKE_WIDTH },
+})
 
 export function createRectangleElementWithoutId({
   x1,

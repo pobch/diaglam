@@ -114,7 +114,13 @@ export function CanvasForSelection({
         elements: extraElements,
         drawFn: (element, canvas) => {
           if (element.type === 'rectangle' || element.type === 'image') {
-            const roughCanvas = rough.canvas(canvas, { options: { seed: CONFIG.SEED } })
+            const roughCanvas = rough.canvas(canvas, {
+              options: {
+                seed: CONFIG.SEED,
+                roughness: CONFIG.ROUGHNESS,
+                strokeWidth: CONFIG.STROKE_WIDTH,
+              },
+            })
             const dashOffset = 5
             const dashTopLeft = {
               x: element.x1 - dashOffset,
@@ -174,7 +180,13 @@ export function CanvasForSelection({
             context.restore()
             return
           } else if (element.type === 'line' || element.type === 'arrow') {
-            const roughCanvas = rough.canvas(canvas, { options: { seed: CONFIG.SEED } })
+            const roughCanvas = rough.canvas(canvas, {
+              options: {
+                seed: CONFIG.SEED,
+                roughness: CONFIG.ROUGHNESS,
+                strokeWidth: CONFIG.STROKE_WIDTH,
+              },
+            })
             const dashOffset = 5
 
             // TODO: find better math equation

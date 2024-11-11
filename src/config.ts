@@ -1,6 +1,8 @@
 export const CONFIG = {
   // * roughjs settings
   SEED: 5,
+  ROUGHNESS: 0.2,
+  STROKE_WIDTH: 1.2,
 
   // * Font settings
   // * --- Case 1: 'Nanum Pen Script'
