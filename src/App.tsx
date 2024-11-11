@@ -115,7 +115,7 @@ export function App() {
           context.fill(new Path2D(stroke))
         } else if (element.type === 'text' && !element.isWriting) {
           context.textBaseline = 'top'
-          context.font = '1.5rem "Nanum Pen Script"'
+          context.font = `${CONFIG.FONT_SIZE} "${CONFIG.FONT_FAMILY}"`
           for (let i = 0; i < element.lines.length; i++) {
             const line = element.lines[i]
             if (!line) continue

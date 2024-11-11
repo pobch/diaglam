@@ -7,6 +7,7 @@ import {
   TSnapshot,
 } from './snapshotManipulation'
 import { CmdButton } from './CmdButton'
+import { CONFIG } from './config'
 
 export function getTextElementAtPosition({
   elementsSnapshot,
@@ -59,8 +60,8 @@ export function createTextElementWithoutId({
   if (!context) {
     throw new Error('Temporary canvas for measure text width/height is not found')
   }
-  context.font = '1.5rem "Nanum Pen Script"'
-  const lineHeight = context.measureText('M').width * 1.2
+  context.font = `${CONFIG.FONT_SIZE} "${CONFIG.FONT_FAMILY}"`
+  const lineHeight = context.measureText('M').width * CONFIG.LINE_HEIGHT_FACTOR_IN_CANVAS
   const contentLines = content.split('\n')
   let lines = []
   let currentY = y1
@@ -314,11 +315,12 @@ export function CanvasForText({
             minHeight: '2em',
             width: uiState.data.textareaWidth,
             minWidth: '2em',
-            fontFamily: 'Nanum Pen Script',
+            marginBlockStart: CONFIG.TEXTAREA_MARGIN_BLOCK_START,
+            fontFamily: CONFIG.FONT_FAMILY,
             // scale fontSize based on zoomLevel
-            fontSize: `${(1.5 * zoomLevel).toFixed(3)}rem`,
+            fontSize: `calc(${CONFIG.FONT_SIZE} * ${zoomLevel})`,
             // TODO: fix this magic number
-            lineHeight: 0.8,
+            lineHeight: CONFIG.TEXTAREA_LINE_HEIGHT,
             whiteSpace: 'pre',
             background: 'transparent',
             outline: 'none',
