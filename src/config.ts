@@ -16,4 +16,7 @@ export const CONFIG = {
   // LINE_HEIGHT_FACTOR_IN_CANVAS: 1.6,
   // TEXTAREA_LINE_HEIGHT: 1.3,
   // TEXTAREA_MARGIN_BLOCK_START: '-0.25em',
+
+  // * perfect-freehand settings
+  PENCIL_SIZE: 3,
 }

@@ -116,7 +116,9 @@ export function App() {
             roughCanvas.draw(roughElement)
           })
         } else if (element.type === 'pencil') {
-          const stroke = getSvgPathFromStroke(getStroke(element.points, { size: 4 }))
+          const stroke = getSvgPathFromStroke(
+            getStroke(element.points, { size: CONFIG.PENCIL_SIZE })
+          )
           // context.fillStyle = 'red'
           context.fill(new Path2D(stroke))
         } else if (element.type === 'text' && !element.isWriting) {
