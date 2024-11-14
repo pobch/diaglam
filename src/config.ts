@@ -12,11 +12,17 @@ export const CONFIG = {
   // TEXTAREA_LINE_HEIGHT: 0.8,
   // TEXTAREA_MARGIN_BLOCK_START: '0',
   // * --- Case 2: 'K2D'
+  // FONT_SIZE: '1rem',
+  // FONT_FAMILY: 'K2D',
+  // LINE_HEIGHT_FACTOR_IN_CANVAS: 1.85,
+  // TEXTAREA_LINE_HEIGHT: 1.5,
+  // TEXTAREA_MARGIN_BLOCK_START: '-0.25em',
+  // * --- Case 3: 'Noto Sans Thai Looped'
   FONT_SIZE: '1rem',
-  FONT_FAMILY: 'K2D',
-  LINE_HEIGHT_FACTOR_IN_CANVAS: 1.85,
+  FONT_FAMILY: 'Noto Sans Thai Looped',
+  LINE_HEIGHT_FACTOR_IN_CANVAS: 1.65,
   TEXTAREA_LINE_HEIGHT: 1.5,
-  TEXTAREA_MARGIN_BLOCK_START: '-0.25em',
+  TEXTAREA_MARGIN_BLOCK_START: '-0.45em',
 
   // * perfect-freehand settings
   PENCIL_SIZE: 3,
