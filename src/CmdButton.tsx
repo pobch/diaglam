@@ -6,7 +6,6 @@ import resetPanZoomSrc from './assets/reset.svg'
 import clearCanvasSrc from './assets/delete.svg'
 import deleteElementSrc from './assets/x-circle.svg'
 import doneEditingTextSrc from './assets/plus.svg'
-import fitToScreenSrc from './assets/fit-screen.svg'
 import duplicateSrc from './assets/duplicate.svg'
 
 export function CmdButton({
@@ -23,7 +22,6 @@ export function CmdButton({
     | 'clearCanvas'
     | 'deleteElement'
     | 'doneEditingText'
-    | 'fitToScreen'
     | 'duplicate'
   onClick: (e: React.MouseEvent) => void
   iconWidth?: number
@@ -37,7 +35,6 @@ export function CmdButton({
     clearCanvas: clearCanvasSrc,
     deleteElement: deleteElementSrc,
     doneEditingText: doneEditingTextSrc,
-    fitToScreen: fitToScreenSrc,
     duplicate: duplicateSrc,
   }
 

@@ -1,3 +1,4 @@
+import { TCanvasSize } from './useCanvasSize'
 import { useState, useRef, useLayoutEffect, useEffect } from 'react'
 import * as React from 'react'
 import {
@@ -51,6 +52,7 @@ export type TCursorType = 'default' | 'move' | 'nesw-resize' | 'nwse-resize'
  * * -----------------------------------------
  */
 export function CanvasForSelection({
+  canvasSize,
   renderCanvas,
   currentSnapshot,
   commitNewSnapshot,
@@ -58,6 +60,7 @@ export function CanvasForSelection({
   viewportCoordsToSceneCoords,
   drawScene,
 }: {
+  canvasSize: TCanvasSize
   renderCanvas: (arg: {
     onPointerDown: (e: React.PointerEvent) => void
     onPointerMove: (e: React.PointerEvent) => void
@@ -258,7 +261,15 @@ export function CanvasForSelection({
     // all other state have no extra dashed lines, just normally draw the snapshot
     drawScene()
     return
-  }, [uiState, drawScene, currentSnapshot])
+  }, [
+    uiState,
+    drawScene,
+    currentSnapshot,
+    // ! Add canvasSize.width/height as dependencies even though they are not being used inside useLayoutEffect(),
+    // ! because we want to force redraw the canvas when its size changes.
+    canvasSize.width,
+    canvasSize.height,
+  ])
 
   // ?? Is there any better approach
   // Reset uiState when it is holding an element's id that is not being drawn in the canvas.

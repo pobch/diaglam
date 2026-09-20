@@ -31,7 +31,6 @@ export const arrow = {
 
 export function createAllElements() {
   cy.visit('http://localhost:3000/')
-  cy.findAllByRole('button', { name: 'fitToScreen' }).first().click()
 
   cy.findByRole('img', { name: 'line' }).click()
   cy.get('#root')

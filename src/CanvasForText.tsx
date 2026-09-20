@@ -402,7 +402,7 @@ export function CanvasForText({
                   }}
                   defaultValue={uiState.data.content}
                   onBlur={() => {
-                    // keep state untouched, just make sure `isWriting` is always `true` after blur
+                    // keep state untouched, just make sure `isWriting` is always `false` after blur
                     if (uiState.state === 'updating') {
                       const editingElement = getSingleElementInSnapshot({
                         snapshot: currentSnapshot,

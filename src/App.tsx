@@ -41,7 +41,10 @@ export function getSvgPathFromStroke(stroke: number[][]) {
  */
 export type TTool = 'selection' | 'line' | 'rectangle' | 'pencil' | 'text' | 'hand' | 'arrow'
 
+const dpr = window.devicePixelRatio || 1
+
 export function App() {
+  const canvasSize = useCanvasSize()
   const [tool, setTool] = useState<TTool>('selection')
   const {
     currentSnapshot,
@@ -90,7 +93,6 @@ export function App() {
 
       if (!context) return
 
-      const dpr = window.devicePixelRatio || 1
       context.save()
 
       // scale from the top-left, then translate() to make it seem like zooming from the center
@@ -162,25 +164,14 @@ export function App() {
     drawScene()
   }, [
     drawScene,
-    // ! also add tool as dependencies even though it's not being used inside useLayoutEffect()
     tool,
+    // ! Add canvasSize.width/height as dependencies even though they are not being used inside useLayoutEffect(),
+    // ! because we want to force redraw the canvas when its size changes.
+    canvasSize.width,
+    canvasSize.height,
   ])
 
-  function forceRedrawScene() {
-    // ! This is a hack
-    // To redraw scene, we need to trigger useLayoutEffect().
-    // ... But, there are different useLayoutEffect() living in this component and in <CanvasForSelection/>.
-    // ... There is a logic to run only one useLayoutEffect() at any time depending on which tool is selected.
-    // We decided to indirectly trigger the correct useLayoutEffect() by just switching the tool and let the existing logics handle the rest.
-    setTool((prev) => {
-      if (prev !== 'selection') return 'selection'
-      else return 'hand'
-    })
-  }
-
   // * --------------- Reusable renderProps ---------------
-  const { canvasSize, recalculateCanvasSize } = useCanvasSize()
-
   function renderCanvas({
     onPointerDown,
     onPointerMove,
@@ -194,8 +185,6 @@ export function App() {
     onClick?: (e: React.MouseEvent) => void
     styleCursor?: 'default' | 'move' | 'nesw-resize' | 'nwse-resize' | 'text' | 'grab' | 'grabbing'
   }) {
-    // Get the device pixel ratio, falling back to 1.
-    const dpr = window.devicePixelRatio || 1
     return (
       <canvas
         ref={canvasRef}
@@ -246,7 +235,6 @@ export function App() {
   function handleClickZoomIn() {
     if (!canvasRef.current) return
 
-    const dpr = window.devicePixelRatio
     const nextZoom = zoomLevel + 0.1
     setZoomLevel(nextZoom)
     // offset (0, 0) to the same point as zoomLevel === 1
@@ -265,7 +253,6 @@ export function App() {
   function handleClickZoomOut() {
     if (!canvasRef.current) return
 
-    const dpr = window.devicePixelRatio
     const nextZoom = Math.max(zoomLevel - 0.1, 0.1)
     setZoomLevel(nextZoom)
     // offset (0, 0) to the same point as zoomLevel === 1
@@ -287,48 +274,8 @@ export function App() {
   }
 
   // * --------------------- Rendering -----------------------
-  const [shouldShowOverlay, setShouldShowOverlay] = useState(true)
   return (
     <>
-      {/* Overlay at first visit */}
-      {shouldShowOverlay ? (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            bottom: 0,
-            left: 0,
-            right: 0,
-            display: 'grid',
-            placeContent: 'center',
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            color: 'white',
-            zIndex: zIndex[30],
-          }}
-        >
-          <div style={{ textAlign: 'center' }}>
-            <CmdButton
-              iconWidth={50}
-              cmdName="fitToScreen"
-              onClick={() => {
-                recalculateCanvasSize()
-                // forceRedrawScene()
-                setShouldShowOverlay(false)
-              }}
-            />
-          </div>
-          <div style={{ textAlign: 'center' }}>↑</div>
-          <ul style={{ maxWidth: 400, padding: '1rem 1rem 1rem 1.5rem' }}>
-            <li>First, adjust the application size to fit the screen.</li>
-            <li>You can also find this button at the bottom of the screen.</li>
-            <li>
-              While drawing, you may need to click this button to re-adjust the screen if the
-              pointer position is inaccurate, or you resize the browser window.
-            </li>
-          </ul>
-        </div>
-      ) : null}
-
       {/* Main App */}
       <div style={{ position: 'relative' }}>
         {/* Top Menu */}
@@ -397,16 +344,6 @@ export function App() {
           <span style={{ paddingInlineEnd: '1rem' }}>
             <CmdButton cmdName="zoomIn" onClick={handleClickZoomIn} />
           </span>
-          <span style={{ paddingInlineEnd: '1rem' }}>|</span>
-          <span style={{ paddingInlineEnd: '1rem' }}>
-            <CmdButton
-              cmdName="fitToScreen"
-              onClick={() => {
-                recalculateCanvasSize()
-                forceRedrawScene()
-              }}
-            />
-          </span>
         </div>
 
         {/* Canvas */}
@@ -415,6 +352,7 @@ export function App() {
             case 'selection':
               return (
                 <CanvasForSelection
+                  canvasSize={canvasSize}
                   renderCanvas={renderCanvas}
                   currentSnapshot={currentSnapshot}
                   commitNewSnapshot={commitNewSnapshot}
