@@ -125,7 +125,7 @@ export function App() {
           context.fill(new Path2D(stroke))
         } else if (element.type === 'text' && !element.isWriting) {
           context.textBaseline = 'top'
-          context.font = `${CONFIG.FONT_SIZE} "${CONFIG.FONT_FAMILY}"`
+          context.font = `${CONFIG.FONT_SIZE_REM} "${CONFIG.FONT_FAMILY}"`
           for (let i = 0; i < element.lines.length; i++) {
             const line = element.lines[i]
             if (!line) continue

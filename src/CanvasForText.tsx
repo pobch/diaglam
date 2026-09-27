@@ -60,7 +60,7 @@ export function createTextElementWithoutId({
   if (!context) {
     throw new Error('Temporary canvas for measure text width/height is not found')
   }
-  context.font = `${CONFIG.FONT_SIZE} "${CONFIG.FONT_FAMILY}"`
+  context.font = `${CONFIG.FONT_SIZE_REM} "${CONFIG.FONT_FAMILY}"`
   const lineHeight = context.measureText('M').width * CONFIG.LINE_HEIGHT_FACTOR_IN_CANVAS
   const contentLines = content.split('\n')
   let lines = []
@@ -79,6 +79,25 @@ export function createTextElementWithoutId({
     type: 'text',
     isWriting,
     lines,
+  }
+}
+
+// In iOS, if the font-size CSS is less than 16px, the browser will automatically zoom in the page
+// when the user focuses on a textarea. This is a problem, because we don't support other ways of zooming than our zoom buttons.
+// So, the hack is, we need to keep the font-size of the textarea to be at least 16px to disable the auto-zoom behavior,
+// and then when zoomed out, use `transform` and `scale` to scale down the textarea to make its visual size smaller than 16px.
+function findTextareaScaling(zoomLevel: number) {
+  const baseFontSizePx =
+    parseFloat(CONFIG.FONT_SIZE_REM) *
+    parseFloat(getComputedStyle(document.documentElement).fontSize)
+  const visualFontSizePx = baseFontSizePx * zoomLevel
+  const textareaFontSizePx = visualFontSizePx < 16 ? 16 : visualFontSizePx
+  const textareaScale = visualFontSizePx < 16 ? visualFontSizePx / textareaFontSizePx : 1
+  return {
+    textareaFontSizePx,
+    textareaScale,
+    sceneLengthToViewportLength: (sceneLengthPx: number) =>
+      visualFontSizePx < 16 ? sceneLengthPx : sceneLengthPx * zoomLevel,
   }
 }
 
@@ -116,24 +135,24 @@ export function CanvasForText({
     | {
         state: 'creating'
         data: {
-          // scene x, y
-          textareaX1: number
-          textareaY1: number
-          // viewport width/height
-          textareaWidth: number
-          textareaHeight: number
+          // scene x, y for read from / write to the snapshot
+          textareaSceneX1: number
+          textareaSceneY1: number
+          // viewport width/height to be used as the textarea's CSS width/height
+          textareaCSSWidth: number
+          textareaCSSHeight: number
         }
       }
     | {
         state: 'updating'
         data: {
           elementId: number
-          // scene x, y
-          textareaX1: number
-          textareaY1: number
-          // viewport width/height
-          textareaWidth: number
-          textareaHeight: number
+          // scene x, y for read from / write to the snapshot
+          textareaSceneX1: number
+          textareaSceneY1: number
+          // viewport width/height to be used as the textarea's CSS width/height
+          textareaCSSWidth: number
+          textareaCSSHeight: number
           content: string
         }
       }
@@ -170,6 +189,56 @@ export function CanvasForText({
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const canvasForMeasureRef = useRef<HTMLCanvasElement>(null)
+  const { textareaScale, textareaFontSizePx, sceneLengthToViewportLength } =
+    findTextareaScaling(zoomLevel)
+
+  function resizeTextareaWhileTyping(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    if (uiState.state === 'none') {
+      throw new Error(
+        'Unexpected behavior: the "none" state should not have a textarea to type in, so this function should not be called.'
+      )
+    }
+    if (uiState.state === 'creating') {
+      // Shrink-then-expand the textarea to make it fits the content,
+      // no matter the user is deleting or adding text.
+      e.target.style.width = '0'
+      e.target.style.height = '0'
+      const textareaWidth = e.target.scrollWidth
+      const textareaHeight = e.target.scrollHeight
+      e.target.style.width = `${textareaWidth}px`
+      e.target.style.height = `${textareaHeight}px`
+      setUiState({
+        ...uiState,
+        data: {
+          ...uiState.data,
+          // read the values from closure, not from e.target, to match what we imperatively manipulate the DOM.
+          textareaCSSWidth: textareaWidth,
+          textareaCSSHeight: textareaHeight,
+        },
+      })
+    }
+    if (uiState.state === 'updating') {
+      // Shrink-then-expand the textarea to make it fits the content,
+      // no matter the user is deleting or adding text.
+      e.target.style.width = '0'
+      e.target.style.height = '0'
+      const textareaWidth = e.target.scrollWidth
+      const textareaHeight = e.target.scrollHeight
+      e.target.style.width = `${textareaWidth}px`
+      e.target.style.height = `${textareaHeight}px`
+      setUiState({
+        ...uiState,
+        data: {
+          ...uiState.data,
+          // read the values from closure, not from e.target, to match what we imperatively manipulate the DOM.
+          textareaCSSWidth: textareaWidth,
+          textareaCSSHeight: textareaHeight,
+        },
+      })
+    }
+
+    throw new Error('This is an unknown state, should not reach here. State: ' + uiState.state)
+  }
 
   function handleClick(e: React.MouseEvent) {
     // no textarea being displayed, will go to either creating or updating mode
@@ -206,12 +275,10 @@ export function CanvasForText({
           state: 'updating',
           data: {
             elementId: firstFoundTextElement.id,
-            textareaX1: firstFoundTextElement.lines[0]?.lineX1 ?? sceneX,
-            textareaY1: firstFoundTextElement.lines[0]?.lineY1 ?? sceneY,
-            // TODO: create a helper function to convert sceneWidth -> viewportWidth
-            textareaWidth: zoomLevel * maxSceneLineWidth,
-            // TODO: create a helper function to convert sceneHeight -> viewportHeight
-            textareaHeight: zoomLevel * sceneContentHeight,
+            textareaSceneX1: firstFoundTextElement.lines[0]?.lineX1 ?? sceneX,
+            textareaSceneY1: firstFoundTextElement.lines[0]?.lineY1 ?? sceneY,
+            textareaCSSWidth: sceneLengthToViewportLength(maxSceneLineWidth),
+            textareaCSSHeight: sceneLengthToViewportLength(sceneContentHeight),
             content: firstFoundTextElement.lines.map(({ lineContent }) => lineContent).join('\n'),
           },
         })
@@ -227,7 +294,12 @@ export function CanvasForText({
         // initialize a floating textarea
         setUiState({
           state: 'creating',
-          data: { textareaX1: sceneX, textareaY1: sceneY, textareaWidth: 0, textareaHeight: 0 },
+          data: {
+            textareaSceneX1: sceneX,
+            textareaSceneY1: sceneY,
+            textareaCSSWidth: 0,
+            textareaCSSHeight: 0,
+          },
         })
         return
       }
@@ -246,8 +318,8 @@ export function CanvasForText({
       const newElementWithoutId = createTextElementWithoutId({
         canvasForMeasure: canvasForMeasureRef.current,
         content,
-        x1: uiState.data.textareaX1,
-        y1: uiState.data.textareaY1,
+        x1: uiState.data.textareaSceneX1,
+        y1: uiState.data.textareaSceneY1,
         isWriting: false,
       })
       commitNewSnapshot({ mode: 'addElements', newElementWithoutIds: [newElementWithoutId] })
@@ -268,8 +340,8 @@ export function CanvasForText({
       const newElementWithoutId = createTextElementWithoutId({
         canvasForMeasure: canvasForMeasureRef.current,
         content: newContent,
-        x1: uiState.data.textareaX1,
-        y1: uiState.data.textareaY1,
+        x1: uiState.data.textareaSceneX1,
+        y1: uiState.data.textareaSceneY1,
         isWriting: false,
       })
       replaceCurrentSnapshotByReplacingElements({
@@ -301,24 +373,26 @@ export function CanvasForText({
           styledFloatingWrapper = {
             position: 'absolute',
             top: sceneCoordsToViewportCoords({
-              sceneX: uiState.data.textareaX1,
-              sceneY: uiState.data.textareaY1,
+              sceneX: uiState.data.textareaSceneX1,
+              sceneY: uiState.data.textareaSceneY1,
             }).viewportY,
             left: sceneCoordsToViewportCoords({
-              sceneX: uiState.data.textareaX1,
-              sceneY: uiState.data.textareaY1,
+              sceneX: uiState.data.textareaSceneX1,
+              sceneY: uiState.data.textareaSceneY1,
             }).viewportX,
+            // scale down when zoomed out, do nothing when zoomed in.
+            transform: `scale(${textareaScale})`,
+            transformOrigin: 'top left',
           }
           styledTextArea = {
             display: 'block',
-            height: uiState.data.textareaHeight,
             minHeight: '2em',
-            width: uiState.data.textareaWidth,
+            height: uiState.data.textareaCSSHeight,
             minWidth: '2em',
+            width: uiState.data.textareaCSSWidth,
             marginBlockStart: CONFIG.TEXTAREA_MARGIN_BLOCK_START,
             fontFamily: CONFIG.FONT_FAMILY,
-            // scale fontSize based on zoomLevel
-            fontSize: `calc(${CONFIG.FONT_SIZE} * ${zoomLevel})`,
+            fontSize: textareaFontSizePx,
             // TODO: fix this magic number
             lineHeight: CONFIG.TEXTAREA_LINE_HEIGHT,
             whiteSpace: 'pre',
@@ -339,32 +413,7 @@ export function CanvasForText({
                   style={styledTextArea}
                   autoFocus
                   ref={textareaRef}
-                  onChange={(e) => {
-                    // Shrink-then-expand the textarea to make it fits the content
-                    // ... no matter the user is deleting or adding text.
-                    e.target.style.width = '0'
-                    e.target.style.height = '0'
-                    const textareaWidth = e.target.scrollWidth
-                    const textareaHeight = e.target.scrollHeight
-                    e.target.style.width = `${textareaWidth}px`
-                    e.target.style.height = `${textareaHeight}px`
-                    setUiState((prev) => {
-                      if (prev.state === 'creating') {
-                        return {
-                          ...prev,
-                          data: {
-                            ...prev.data,
-                            // This is viewport(not scene) width/height. It's already taking zoomLevel into account
-                            // ... because width/height is calculated from a scaled font size(which is scaled by zoomLevel) in the content.
-                            // Also, read the values from closure, not from e.target, to match what we imperatively manipulate the DOM.
-                            textareaWidth: textareaWidth,
-                            textareaHeight: textareaHeight,
-                          },
-                        }
-                      }
-                      return prev
-                    })
-                  }}
+                  onChange={resizeTextareaWhileTyping}
                 />
                 <div style={styledButtonWrapper}>
                   <CmdButton cmdName="doneEditingText" onClick={handleClick} iconWidth={16} />
@@ -378,28 +427,7 @@ export function CanvasForText({
                   style={styledTextArea}
                   autoFocus
                   ref={textareaRef}
-                  onChange={(e) => {
-                    // see comment in onChange of "creating" state above, for why we need to do this
-                    e.target.style.width = '0'
-                    e.target.style.height = '0'
-                    const textareaWidth = e.target.scrollWidth
-                    const textareaHeight = e.target.scrollHeight
-                    e.target.style.width = `${textareaWidth}px`
-                    e.target.style.height = `${textareaHeight}px`
-                    setUiState((prev) => {
-                      if (prev.state === 'updating') {
-                        return {
-                          ...prev,
-                          data: {
-                            ...prev.data,
-                            textareaWidth: textareaWidth,
-                            textareaHeight: textareaHeight,
-                          },
-                        }
-                      }
-                      return prev
-                    })
-                  }}
+                  onChange={resizeTextareaWhileTyping}
                   defaultValue={uiState.data.content}
                   onBlur={() => {
                     // keep state untouched, just make sure `isWriting` is always `false` after blur
