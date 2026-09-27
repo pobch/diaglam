@@ -197,8 +197,7 @@ export function CanvasForText({
       throw new Error(
         'Unexpected behavior: the "none" state should not have a textarea to type in, so this function should not be called.'
       )
-    }
-    if (uiState.state === 'creating') {
+    } else if (uiState.state === 'creating') {
       // Shrink-then-expand the textarea to make it fits the content,
       // no matter the user is deleting or adding text.
       e.target.style.width = '0'
@@ -216,8 +215,8 @@ export function CanvasForText({
           textareaCSSHeight: textareaHeight,
         },
       })
-    }
-    if (uiState.state === 'updating') {
+      return
+    } else if (uiState.state === 'updating') {
       // Shrink-then-expand the textarea to make it fits the content,
       // no matter the user is deleting or adding text.
       e.target.style.width = '0'
@@ -235,9 +234,14 @@ export function CanvasForText({
           textareaCSSHeight: textareaHeight,
         },
       })
+      return
+    } else {
+      const unreachableState: never = uiState
+      throw new Error(
+        'This is an unknown state, should not reach here. State: ' +
+          JSON.stringify(unreachableState)
+      )
     }
-
-    throw new Error('This is an unknown state, should not reach here. State: ' + uiState.state)
   }
 
   function handleClick(e: React.MouseEvent) {
