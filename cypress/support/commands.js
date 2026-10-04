@@ -1,5 +1,6 @@
-const compareSnapshotCommand = require('cypress-visual-regression/dist/command')
+import { addCompareSnapshotCommand } from 'cypress-visual-regression/dist/command'
 
-compareSnapshotCommand({
-  capture: 'fullPage',
+addCompareSnapshotCommand({
+  capture: 'viewport',
+  errorThreshold: 0,
 })

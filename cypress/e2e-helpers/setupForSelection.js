@@ -30,7 +30,7 @@ export const arrow = {
 }
 
 export function createAllElements() {
-  cy.visit('http://localhost:3000/')
+  cy.visit('/')
 
   cy.findByRole('img', { name: 'line' }).click()
   cy.get('#root')

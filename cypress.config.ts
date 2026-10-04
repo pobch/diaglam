@@ -1,19 +1,26 @@
 import { defineConfig } from 'cypress'
+import { configureVisualRegression } from 'cypress-visual-regression'
 
 export default defineConfig({
-  // For cypress-visual-regression
-  screenshotsFolder: './cypress/snapshots/actual',
+  viewportWidth: 1000,
+  viewportHeight: 660,
+  screenshotsFolder: 'cypress/snapshots/actual',
   trashAssetsBeforeRuns: true,
-  env: {
-    failSilently: false,
+  video: false,
+  expose: {
+    visualRegressionType: 'regression',
+    visualRegressionBaseDirectory: 'cypress/snapshots/base',
+    visualRegressionDiffDirectory: 'cypress/snapshots/diff',
+    visualRegressionGenerateDiff: 'fail',
+    visualRegressionFailSilently: false,
+    visualRegressionUpdateSnapshots: false,
   },
-
-  // Cypress defaults
   e2e: {
-    // We've imported your old cypress plugins here.
-    // You may want to clean this up later by importing these.
-    setupNodeEvents(on, config) {
-      return require('./cypress/plugins/index.js')(on, config)
+    baseUrl: 'http://localhost:3000',
+    specPattern: 'cypress/e2e/**/*.cy.js',
+    supportFile: 'cypress/support/e2e.js',
+    setupNodeEvents(on) {
+      configureVisualRegression(on)
     },
   },
 })
