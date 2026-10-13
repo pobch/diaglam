@@ -1,4 +1,3 @@
-/* eslint-disable no-extra-label */
 import * as React from 'react'
 import { flushSync } from 'react-dom'
 import { getMultiElementsInSnapshot, TElementData, TSnapshot } from '../snapshotManipulation'
@@ -338,12 +337,12 @@ export function createPointerHandlers({
 
           handleCursorUI(e)
         },
-        handlePointerUp(e: React.PointerEvent) {},
+        handlePointerUp(_e: React.PointerEvent) {},
       }
     }
     case 'areaSelecting': {
       return {
-        handlePointerDown(e: React.PointerEvent) {},
+        handlePointerDown(_e: React.PointerEvent) {},
         handlePointerMove(e: React.PointerEvent) {
           if (!e.isPrimary) return
 
@@ -386,7 +385,7 @@ export function createPointerHandlers({
     }
     case 'readyToMove': {
       return {
-        handlePointerDown(e: React.PointerEvent) {},
+        handlePointerDown(_e: React.PointerEvent) {},
         handlePointerMove(e: React.PointerEvent) {
           if (!e.isPrimary) return
 
@@ -422,7 +421,7 @@ export function createPointerHandlers({
     }
     case 'moving': {
       return {
-        handlePointerDown(e: React.PointerEvent) {},
+        handlePointerDown(_e: React.PointerEvent) {},
         handlePointerMove(e: React.PointerEvent) {
           if (!e.isPrimary) return
 
@@ -463,7 +462,7 @@ export function createPointerHandlers({
     }
     case 'readyToResize': {
       return {
-        handlePointerDown(e: React.PointerEvent) {},
+        handlePointerDown(_e: React.PointerEvent) {},
         handlePointerMove(e: React.PointerEvent) {
           if (!e.isPrimary) return
 
@@ -490,7 +489,7 @@ export function createPointerHandlers({
     }
     case 'resizing': {
       return {
-        handlePointerDown(e: React.PointerEvent) {},
+        handlePointerDown(_e: React.PointerEvent) {},
         handlePointerMove(e: React.PointerEvent) {
           if (!e.isPrimary) return
 
@@ -592,7 +591,7 @@ export function createPointerHandlers({
 
           handleCursorUI(e)
         },
-        handlePointerUp(e: React.PointerEvent) {},
+        handlePointerUp(_e: React.PointerEvent) {},
       }
     }
     case 'multiElementSelected': {
@@ -651,13 +650,14 @@ export function createPointerHandlers({
 
           handleCursorUI(e)
         },
-        handlePointerUp(e: React.PointerEvent) {},
+        handlePointerUp(_e: React.PointerEvent) {},
       }
     }
     default: {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const unhandledCase: never = uiState
-      throw new Error(`No (pointer)event handler is defined according to the current UI state`)
+      throw new Error(
+        `No (pointer)event handler is defined according to the current UI state: ${JSON.stringify(unhandledCase)}`
+      )
     }
   }
 }

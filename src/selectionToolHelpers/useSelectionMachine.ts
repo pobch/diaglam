@@ -704,7 +704,7 @@ export function useSelectionMachine({
         })
         const newDuplicatedElements = createMovedElements({
           moveDataArray: moveDataArray,
-          getOriginalElementFromId: (id) => originalElement,
+          getOriginalElementFromId: () => originalElement,
           canvasForMeasureTextRef: canvasForMeasureRef,
           newPointerSceneX: 0,
           newPointerSceneY: moveDistanceSceneY,

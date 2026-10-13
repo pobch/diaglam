@@ -462,6 +462,8 @@ export function CanvasForText({
         }
       })()}
 
+      {/* renderCanvas attaches these handlers to the canvas; it does not call them during render. */}
+      {/* oxlint-disable-next-line react/refs */}
       {renderCanvas({
         onPointerMove: handlePointerMove,
         onClick: handleClick,

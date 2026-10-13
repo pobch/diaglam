@@ -1,6 +1,6 @@
 {
   "name": "react-diagram",
-  "version": "0.1.0",
+  "version": "1.0.1",
   "private": true,
   "type": "module",
   "dependencies": {
@@ -14,6 +14,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "lint": "oxlint --deny-warnings .",
+    "lint:fix": "pnpm run lint --fix",
     "visual:baseline": "cypress run --e2e --browser electron --expose visualRegressionType=base",
     "visual:test": "cypress run --e2e --browser electron --expose visualRegressionType=regression",
     "cypress:open": "cypress open --e2e --browser electron"
@@ -26,7 +28,8 @@
     "@vitejs/plugin-react": "^6.1.2",
     "cypress": "^16.1.1",
     "cypress-visual-regression": "^6.0.1",
-    "eslint-plugin-cypress": "^2.12.1",
+    "eslint-plugin-cypress": "^7.0.2",
+    "oxlint": "^1.87.0",
     "typescript": "^5.9.3",
     "vite": "^8.3.3"
   },

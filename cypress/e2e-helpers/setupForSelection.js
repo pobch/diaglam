@@ -40,18 +40,21 @@ export function createAllElements() {
       clientY: line.startY,
       isPrimary: true,
     })
+  cy.get('#root')
     // in the middle
     .trigger('pointermove', {
       clientX: line.middleX,
       clientY: line.middleY,
       isPrimary: true,
     })
+  cy.get('#root')
     // end
     .trigger('pointermove', {
       clientX: line.endX,
       clientY: line.endY,
       isPrimary: true,
     })
+  cy.get('#root')
     .trigger('pointerup', {
       clientX: line.endX,
       clientY: line.endY,
@@ -66,18 +69,21 @@ export function createAllElements() {
       clientY: rectangle.startY,
       isPrimary: true,
     })
+  cy.get('#root')
     // in the middle
     .trigger('pointermove', {
       clientX: rectangle.middleX,
       clientY: rectangle.middleY,
       isPrimary: true,
     })
+  cy.get('#root')
     // end
     .trigger('pointermove', {
       clientX: rectangle.endX,
       clientY: rectangle.endY,
       isPrimary: true,
     })
+  cy.get('#root')
     .trigger('pointerup', {
       clientX: rectangle.endX,
       clientY: rectangle.endY,
@@ -97,18 +103,21 @@ export function createAllElements() {
       clientY: arrow.startY,
       isPrimary: true,
     })
+  cy.get('#root')
     // in the middle
     .trigger('pointermove', {
       clientX: arrow.middleX,
       clientY: arrow.middleY,
       isPrimary: true,
     })
+  cy.get('#root')
     // end
     .trigger('pointermove', {
       clientX: arrow.endX,
       clientY: arrow.endY,
       isPrimary: true,
     })
+  cy.get('#root')
     .trigger('pointerup', {
       clientX: arrow.endX,
       clientY: arrow.endY,

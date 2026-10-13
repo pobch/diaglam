@@ -1,0 +1,60 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "react"],
+  "jsPlugins": ["eslint-plugin-cypress"],
+  "categories": {
+    "correctness": "error"
+  },
+  "ignorePatterns": ["dist/**", "build/**", "coverage/**", "cypress/snapshots/**"],
+  "rules": {
+    "array-callback-return": "error",
+    "no-fallthrough": "error",
+    "no-promise-executor-return": "error",
+    "no-unexpected-multiline": "error",
+    "react/rules-of-hooks": "error",
+    // The `eqeqeq` rule uses `smart` mode, which allows `value == null` checks
+    "eqeqeq": ["error", "smart"],
+    "no-constructor-return": "error",
+    "no-loop-func": "error",
+    "no-self-compare": "error",
+    "no-unmodified-loop-condition": "error",
+    "oxc/misrefactored-assign-op": "error",
+    "unicorn/no-accessor-recursion": "error",
+    "unicorn/no-array-fill-with-reference-type": "error",
+    "react/jsx-no-comment-textnodes": "error",
+    "react/no-unstable-nested-components": "error",
+    "react/style-prop-object": "error"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.{js,jsx,mjs,cjs}"],
+      "env": {
+        "browser": true,
+        "node": true
+      },
+      "rules": {
+        "no-undef": "error"
+      }
+    },
+    {
+      "files": ["cypress/**/*.{js,jsx,ts,tsx}"],
+      "env": {
+        "browser": true,
+        "mocha": true
+      },
+      "globals": {
+        "cy": "readonly",
+        "Cypress": "readonly",
+        "expect": "readonly",
+        "assert": "readonly",
+        "chai": "readonly"
+      },
+      "rules": {
+        "cypress/no-assigning-return-values": "error",
+        "cypress/no-async-tests": "error",
+        "cypress/no-async-before": "error",
+        "cypress/unsafe-to-chain-command": "error"
+      }
+    }
+  ]
+}

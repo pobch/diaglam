@@ -59,9 +59,17 @@ For a deployment under a subpath, use `pnpm run build --base=/your-path/`.
 
 Run `pnpm run typecheck` to check TypeScript without a build.
 
+### Lint
+
+Run `pnpm run lint` to check JavaScript, TypeScript, React, React Hooks, and Cypress code with Oxlint.
+
+Run `pnpm run lint:fix` to apply available safe fixes.
+
+Type-aware Oxlint rules need additional setup and are not enabled. `pnpm run typecheck` remains the TypeScript check.
+
 ### Environment variables
 
-`.env` sets `VITE_CANONICAL_URL` for the canonical URL and social metadata in `index.html`.
+`.env` sets the canonical URL and social metadata in `index.html`.
 
 In application code, access client variables with `import.meta.env.VITE_NAME`.
 

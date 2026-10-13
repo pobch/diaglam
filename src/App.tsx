@@ -121,6 +121,9 @@ export function App() {
             getStroke(element.points, { size: CONFIG.PENCIL_SIZE })
           )
           // context.fillStyle = 'red'
+
+          // Canvas fill draws a path; it does not fill an array with shared objects.
+          // oxlint-disable-next-line unicorn/no-array-fill-with-reference-type
           context.fill(new Path2D(stroke))
         } else if (element.type === 'text' && !element.isWriting) {
           context.textBaseline = 'top'

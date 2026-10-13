@@ -8,16 +8,19 @@ it('should be able to create a rectangle', () => {
       clientY: 100,
       isPrimary: true,
     })
+  cy.get('#root')
     .trigger('pointermove', {
       clientX: 200,
       clientY: 300,
       isPrimary: true,
     })
+  cy.get('#root')
     .trigger('pointerup', {
       clientX: 200,
       clientY: 300,
       isPrimary: true,
     })
+  cy.get('#root')
     .trigger('pointermove', {
       clientX: 250,
       clientY: 350,

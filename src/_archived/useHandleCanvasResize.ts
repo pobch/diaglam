@@ -22,7 +22,7 @@ export function useHandleCanvasResize(canvasRef: React.RefObject<HTMLCanvasEleme
       const onLoad = () => {
         if (canvasRef.current) {
           const ctx = canvasRef.current.getContext('2d')
-          ctx && ctx.drawImage(img, 0, 0)
+          ctx?.drawImage(img, 0, 0)
         }
       }
       img.addEventListener('load', onLoad)
