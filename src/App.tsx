@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import rough from 'roughjs/bundled/rough.esm'
 import { CanvasForSelection } from './CanvasForSelection'
 import { CanvasForRect } from './CanvasForRect'
@@ -14,6 +14,8 @@ import { ImageUploadButton } from './ImageUploadButton'
 import { zIndex } from './helpers/zIndex'
 import { useCanvasSize } from './useCanvasSize'
 import { useHistory } from './snapshotManipulation'
+import { SnapshotFileMenu } from './SnapshotFileMenu'
+import { ErrorModal } from './ErrorModal'
 
 // copy from perfect-freehand doc
 export function getSvgPathFromStroke(stroke: number[][]) {
@@ -48,11 +50,11 @@ export function App() {
   const {
     currentSnapshot,
     commitNewSnapshot,
-    replaceCurrentSnapshotByReplacingElements,
+    replaceCurrentSnapshotByModifyingElements,
     replaceCurrentSnapshotByRemovingElement,
     undo,
     redo,
-    DEBUG_importSnapshot,
+    loadSnapshot,
   } = useHistory()
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -60,25 +62,15 @@ export function App() {
   const [zoomLevel, setZoomLevel] = useState(1)
   const [originOffset, setOriginOffset] = useState({ x: 0, y: 0 })
 
-  // * ----------- For Debugging -----------
-  // Can remove this anytime
-  useEffect(
-    function FOR_DEBUG() {
-      // not support image element
-      ;(window as any).exportSnapshot = () => {
-        return currentSnapshot
-      }
-      ;(window as any).importSnapshot = DEBUG_importSnapshot
-    },
-    [DEBUG_importSnapshot, currentSnapshot]
-  )
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [remountKey, setRemountKey] = useState(0)
 
   // * ----------- Clear Canvas -------------
 
   function handleClickClearCanvas() {
     if (!canvasRef.current) return
 
-    commitNewSnapshot({ mode: 'removeAllElement' })
+    commitNewSnapshot({ mode: 'removeAllElements' })
   }
 
   // * ------------ Canvas Drawing ------------
@@ -135,7 +127,7 @@ export function App() {
           }
         } else if (element.type === 'image') {
           context.drawImage(
-            element.data,
+            element.data.bitmap,
             element.x1,
             element.y1,
             element.x2 - element.x1,
@@ -320,6 +312,7 @@ export function App() {
               // TODO: Take viewport coords into account(to work well with zoom), instead of hardcode x1, y1 scene
               scenePositionToDrawImage={{ x1: originOffset.x + 100, y1: originOffset.y + 100 }}
               onUploadSuccess={() => setTool('selection')}
+              onError={setErrorMessage}
             />
           </span>
         </fieldset>
@@ -332,11 +325,9 @@ export function App() {
           <span style={{ paddingInlineEnd: '1rem' }}>
             <CmdButton cmdName="redo" onClick={() => redo()} />
           </span>
-          <span style={{ paddingInlineEnd: '1rem' }}>|</span>
           <span style={{ paddingInlineEnd: '1rem' }}>
             <CmdButton cmdName="clearCanvas" onClick={handleClickClearCanvas} />
           </span>
-          <span style={{ paddingInlineEnd: '1rem' }}>|</span>
           <span style={{ paddingInlineEnd: '1rem' }}>
             <CmdButton cmdName="zoomOut" onClick={handleClickZoomOut} />
           </span>
@@ -346,6 +337,15 @@ export function App() {
           <span style={{ paddingInlineEnd: '1rem' }}>
             <CmdButton cmdName="zoomIn" onClick={handleClickZoomIn} />
           </span>
+          <SnapshotFileMenu
+            snapshot={currentSnapshot}
+            onImport={(snapshot) => {
+              loadSnapshot(snapshot)
+              setTool('selection')
+              setRemountKey((previous) => previous + 1)
+            }}
+            onError={setErrorMessage}
+          />
         </div>
 
         {/* Canvas */}
@@ -354,12 +354,13 @@ export function App() {
             case 'selection':
               return (
                 <CanvasForSelection
+                  key={remountKey}
                   canvasSize={canvasSize}
                   renderCanvas={renderCanvas}
                   currentSnapshot={currentSnapshot}
                   commitNewSnapshot={commitNewSnapshot}
-                  replaceCurrentSnapshotByReplacingElements={
-                    replaceCurrentSnapshotByReplacingElements
+                  replaceCurrentSnapshotByModifyingElements={
+                    replaceCurrentSnapshotByModifyingElements
                   }
                   viewportCoordsToSceneCoords={viewportCoordsToSceneCoords}
                   drawScene={drawScene}
@@ -371,8 +372,8 @@ export function App() {
                   renderCanvas={renderCanvas}
                   currentSnapshot={currentSnapshot}
                   commitNewSnapshot={commitNewSnapshot}
-                  replaceCurrentSnapshotByReplacingElements={
-                    replaceCurrentSnapshotByReplacingElements
+                  replaceCurrentSnapshotByModifyingElements={
+                    replaceCurrentSnapshotByModifyingElements
                   }
                   viewportCoordsToSceneCoords={viewportCoordsToSceneCoords}
                 />
@@ -383,8 +384,8 @@ export function App() {
                   renderCanvas={renderCanvas}
                   currentSnapshot={currentSnapshot}
                   commitNewSnapshot={commitNewSnapshot}
-                  replaceCurrentSnapshotByReplacingElements={
-                    replaceCurrentSnapshotByReplacingElements
+                  replaceCurrentSnapshotByModifyingElements={
+                    replaceCurrentSnapshotByModifyingElements
                   }
                   viewportCoordsToSceneCoords={viewportCoordsToSceneCoords}
                   lineType="line"
@@ -396,8 +397,8 @@ export function App() {
                   renderCanvas={renderCanvas}
                   currentSnapshot={currentSnapshot}
                   commitNewSnapshot={commitNewSnapshot}
-                  replaceCurrentSnapshotByReplacingElements={
-                    replaceCurrentSnapshotByReplacingElements
+                  replaceCurrentSnapshotByModifyingElements={
+                    replaceCurrentSnapshotByModifyingElements
                   }
                   viewportCoordsToSceneCoords={viewportCoordsToSceneCoords}
                 />
@@ -408,8 +409,8 @@ export function App() {
                   renderCanvas={renderCanvas}
                   currentSnapshot={currentSnapshot}
                   commitNewSnapshot={commitNewSnapshot}
-                  replaceCurrentSnapshotByReplacingElements={
-                    replaceCurrentSnapshotByReplacingElements
+                  replaceCurrentSnapshotByModifyingElements={
+                    replaceCurrentSnapshotByModifyingElements
                   }
                   replaceCurrentSnapshotByRemovingElement={replaceCurrentSnapshotByRemovingElement}
                   viewportCoordsToSceneCoords={viewportCoordsToSceneCoords}
@@ -431,8 +432,8 @@ export function App() {
                   renderCanvas={renderCanvas}
                   currentSnapshot={currentSnapshot}
                   commitNewSnapshot={commitNewSnapshot}
-                  replaceCurrentSnapshotByReplacingElements={
-                    replaceCurrentSnapshotByReplacingElements
+                  replaceCurrentSnapshotByModifyingElements={
+                    replaceCurrentSnapshotByModifyingElements
                   }
                   viewportCoordsToSceneCoords={viewportCoordsToSceneCoords}
                   lineType="arrow"
@@ -440,6 +441,9 @@ export function App() {
               )
           }
         })()}
+        {errorMessage !== null && (
+          <ErrorModal message={errorMessage} onClose={() => setErrorMessage(null)} />
+        )}
       </div>
     </>
   )

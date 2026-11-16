@@ -3,7 +3,7 @@ import {
   getSingleElementInSnapshot,
   TCommitNewSnapshotFn,
   TElementData,
-  TReplaceCurrentSnapshotParam,
+  TReplaceCurrentSnapshotByModifyingElementsFn,
   TSnapshot,
 } from './snapshotManipulation'
 
@@ -42,7 +42,7 @@ export function CanvasForPencil({
   renderCanvas,
   currentSnapshot,
   commitNewSnapshot,
-  replaceCurrentSnapshotByReplacingElements,
+  replaceCurrentSnapshotByModifyingElements,
   viewportCoordsToSceneCoords,
 }: {
   renderCanvas: (arg: {
@@ -52,7 +52,7 @@ export function CanvasForPencil({
   }) => React.ReactElement
   currentSnapshot: TSnapshot
   commitNewSnapshot: TCommitNewSnapshotFn
-  replaceCurrentSnapshotByReplacingElements: (arg: TReplaceCurrentSnapshotParam) => void
+  replaceCurrentSnapshotByModifyingElements: TReplaceCurrentSnapshotByModifyingElementsFn
   viewportCoordsToSceneCoords: (arg: { viewportX: number; viewportY: number }) => {
     sceneX: number
     sceneY: number
@@ -115,7 +115,7 @@ export function CanvasForPencil({
         newY: sceneY,
         currentPoints: drawingElement.points,
       })
-      replaceCurrentSnapshotByReplacingElements({ replacedElement: newElement })
+      replaceCurrentSnapshotByModifyingElements([newElement])
       return
     }
   }

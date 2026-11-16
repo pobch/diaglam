@@ -30,7 +30,7 @@ https://user-images.githubusercontent.com/19894957/165162344-d48826a6-5169-4a2c-
 - [x] Support uploading an image
 - [x] Duplicate elements
 - [ ] Send to back/front
-- [ ] Save the result to file / local storage (need to serialize the image)
+- [x] Save and import diagrams, including images, as .diaglam files
 - [ ] Limit max history stack to ~50 items
 - [ ] Export canvas to png/jpeg
 - [ ] Rotate
@@ -125,13 +125,6 @@ Note:
 
 - Generate and compare baselines on the same OS and Cypress version to keep the rendering consistent.
 - Regression mode fails on missing baselines or visual differences and does not update baselines.
-
-### Temporary functions for export/import diagram
-
-The following functions are temporary. Mostly use for debugging. In the future, we will implement a proper export/import feature.
-
-- `exportSnapshot()` to export the diagram (must not have any image element)
-- `importSnapshot(value)` to import, `value` is the result of calling `exportSnapshot()` (must not have any image element)
 
 ### Icons
 

@@ -1,0 +1,40 @@
+.menu {
+  position: relative;
+  display: inline-block;
+}
+
+.menuItems {
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 1px solid #0ea5e9;
+  background: white;
+}
+
+.menuItems button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.filenameForm label,
+.filenameForm input {
+  display: block;
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.filenameForm input {
+  padding: 0.4rem;
+}
+
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}

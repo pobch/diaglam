@@ -1,14 +1,17 @@
 import { TCommitNewSnapshotFn, TElementData } from './snapshotManipulation'
 import iconSrc from './assets/image.svg'
+import { ImageAsset, prepareUploadedImage } from './imageAsset'
 
 export function ImageUploadButton({
   commitNewSnapshot,
   scenePositionToDrawImage,
   onUploadSuccess,
+  onError,
 }: {
   commitNewSnapshot: TCommitNewSnapshotFn
   scenePositionToDrawImage: { x1: number; y1: number }
   onUploadSuccess: () => void
+  onError: (message: string) => void
 }) {
   return (
     <>
@@ -18,11 +21,15 @@ export function ImageUploadButton({
       <input
         id="image-upload"
         type="file"
+        accept="image/png,image/jpeg,image/webp"
         style={{ width: '1px', height: '1px', opacity: 0 }}
-        onChange={(e) => {
+        onChange={async (e) => {
           const file = e.target.files?.[0]
+          // Allow selecting the same file again, including after an error.
+          e.target.value = ''
           if (!file) return
-          createImageBitmap(file).then((imageBitmap) => {
+          try {
+            const image = await prepareUploadedImage(file)
             commitNewSnapshot({
               mode: 'addElements',
               newElementWithoutIds: [
@@ -30,18 +37,17 @@ export function ImageUploadButton({
                   type: 'image',
                   x1: scenePositionToDrawImage.x1,
                   y1: scenePositionToDrawImage.y1,
-                  x2: scenePositionToDrawImage.x1 + imageBitmap.width,
-                  y2: scenePositionToDrawImage.y1 + imageBitmap.height,
-                  data: imageBitmap,
+                  x2: scenePositionToDrawImage.x1 + image.bitmap.width,
+                  y2: scenePositionToDrawImage.y1 + image.bitmap.height,
+                  data: image,
                 },
               ],
             })
 
-            // make onChange being triggered again even though the user select the same image
-            e.target.value = ''
-
             onUploadSuccess()
-          })
+          } catch (error) {
+            onError(error instanceof Error ? error.message : 'Cannot open this image.')
+          }
         }}
       />
     </>
@@ -59,7 +65,7 @@ export function createImageElementWithoutId({
   y1: number
   width: number
   height: number
-  imageData: ImageBitmap
+  imageData: ImageAsset
 }): Omit<Extract<TElementData, { type: 'image' }>, 'id'> {
   return {
     x1: x1,

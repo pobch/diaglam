@@ -7,7 +7,7 @@ import {
   getMultiElementsInSnapshot,
   TCommitNewSnapshotFn,
   TElementData,
-  TReplaceCurrentSnapshotParam,
+  TReplaceCurrentSnapshotByModifyingElementsFn,
   TSnapshot,
 } from '../snapshotManipulation'
 import { moveImageElement, moveRectangleElement } from './moveHelpers'
@@ -213,12 +213,12 @@ function reducer(prevState: TUiState, event: TEvent): TUiState {
 export function useSelectionMachine({
   currentSnapshot,
   commitNewSnapshot,
-  replaceCurrentSnapshotByReplacingElements,
+  replaceCurrentSnapshotByModifyingElements,
   canvasForMeasureRef,
 }: {
   currentSnapshot: TSnapshot
   commitNewSnapshot: TCommitNewSnapshotFn
-  replaceCurrentSnapshotByReplacingElements: (arg: TReplaceCurrentSnapshotParam) => void
+  replaceCurrentSnapshotByModifyingElements: TReplaceCurrentSnapshotByModifyingElementsFn
   canvasForMeasureRef: React.MutableRefObject<HTMLCanvasElement | null>
 }) {
   const [uiState, dispatch] = useReducer(reducer, { state: 'none' })
@@ -341,7 +341,7 @@ export function useSelectionMachine({
               newPointerSceneY: sceneY,
             })
             // side effect
-            replaceCurrentSnapshotByReplacingElements({ replacedMultiElements })
+            replaceCurrentSnapshotByModifyingElements(replacedMultiElements)
             // move to the next state of the state machine
             dispatch({ type: 'continueMove', data: [...prevState.data] })
             return
@@ -451,9 +451,9 @@ export function useSelectionMachine({
                   x2: resizingElement.x2,
                   y2: resizingElement.y2,
                 })
-                replaceCurrentSnapshotByReplacingElements({
-                  replacedElement: { ...newElementWithoutId, id: resizingElementId },
-                })
+                replaceCurrentSnapshotByModifyingElements([
+                  { ...newElementWithoutId, id: resizingElementId },
+                ])
                 dispatch({
                   type: 'continueResize',
                   data: { ...prevState.data },
@@ -467,9 +467,9 @@ export function useSelectionMachine({
                   x2: sceneX,
                   y2: sceneY,
                 })
-                replaceCurrentSnapshotByReplacingElements({
-                  replacedElement: { ...newElementWithoutId, id: resizingElementId },
-                })
+                replaceCurrentSnapshotByModifyingElements([
+                  { ...newElementWithoutId, id: resizingElementId },
+                ])
                 dispatch({
                   type: 'continueResize',
                   data: { ...prevState.data },
@@ -489,9 +489,9 @@ export function useSelectionMachine({
                 pointerStartedAt: prevState.data.pointerPosition,
                 rectElementToResize: resizingElement,
               })
-              replaceCurrentSnapshotByReplacingElements({
-                replacedElement: { ...newElementWithoutId, id: resizingElementId },
-              })
+              replaceCurrentSnapshotByModifyingElements([
+                { ...newElementWithoutId, id: resizingElementId },
+              ])
               dispatch({
                 type: 'continueResize',
                 data: { ...prevState.data },
@@ -503,9 +503,9 @@ export function useSelectionMachine({
                 pointerStartedAt: prevState.data.pointerPosition,
                 imageElementToResize: resizingElement,
               })
-              replaceCurrentSnapshotByReplacingElements({
-                replacedElement: { ...newElementWithoutId, id: resizingElementId },
-              })
+              replaceCurrentSnapshotByModifyingElements([
+                { ...newElementWithoutId, id: resizingElementId },
+              ])
               dispatch({
                 type: 'continueResize',
                 data: { ...prevState.data },
@@ -557,9 +557,9 @@ export function useSelectionMachine({
               width: newX2 - newX1,
               height: newY2 - newY1,
             })
-            replaceCurrentSnapshotByReplacingElements({
-              replacedElement: { ...newElementWithoutId, id: resizingElementId },
-            })
+            replaceCurrentSnapshotByModifyingElements([
+              { ...newElementWithoutId, id: resizingElementId },
+            ])
             dispatch({
               type: 'flipThenSelectRectangle',
               data: { elementId: resizingElementId },

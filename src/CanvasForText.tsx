@@ -3,7 +3,7 @@ import {
   getSingleElementInSnapshot,
   TCommitNewSnapshotFn,
   TElementData,
-  TReplaceCurrentSnapshotParam,
+  TReplaceCurrentSnapshotByModifyingElementsFn,
   TSnapshot,
 } from './snapshotManipulation'
 import { CmdButton } from './CmdButton'
@@ -105,7 +105,7 @@ export function CanvasForText({
   renderCanvas,
   currentSnapshot,
   commitNewSnapshot,
-  replaceCurrentSnapshotByReplacingElements,
+  replaceCurrentSnapshotByModifyingElements,
   replaceCurrentSnapshotByRemovingElement,
   viewportCoordsToSceneCoords,
   sceneCoordsToViewportCoords,
@@ -118,7 +118,7 @@ export function CanvasForText({
   }) => React.ReactElement
   currentSnapshot: TSnapshot
   commitNewSnapshot: TCommitNewSnapshotFn
-  replaceCurrentSnapshotByReplacingElements: (arg: TReplaceCurrentSnapshotParam) => void
+  replaceCurrentSnapshotByModifyingElements: TReplaceCurrentSnapshotByModifyingElementsFn
   replaceCurrentSnapshotByRemovingElement: (elementId: number) => void
   viewportCoordsToSceneCoords: (arg: { viewportX: number; viewportY: number }) => {
     sceneX: number
@@ -348,9 +348,9 @@ export function CanvasForText({
         y1: uiState.data.textareaSceneY1,
         isWriting: false,
       })
-      replaceCurrentSnapshotByReplacingElements({
-        replacedElement: { ...newElementWithoutId, id: uiState.data.elementId },
-      })
+      replaceCurrentSnapshotByModifyingElements([
+        { ...newElementWithoutId, id: uiState.data.elementId },
+      ])
       setUiState({ state: 'none' })
       return
     }
@@ -445,9 +445,9 @@ export function CanvasForText({
                           'The editing element is missing in the current history or not a "text" element'
                         )
                       }
-                      replaceCurrentSnapshotByReplacingElements({
-                        replacedElement: { ...editingElement, isWriting: false },
-                      })
+                      replaceCurrentSnapshotByModifyingElements([
+                        { ...editingElement, isWriting: false },
+                      ])
                       return
                     }
                   }}

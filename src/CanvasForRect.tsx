@@ -7,7 +7,7 @@ import {
   getSingleElementInSnapshot,
   TCommitNewSnapshotFn,
   TElementData,
-  TReplaceCurrentSnapshotParam,
+  TReplaceCurrentSnapshotByModifyingElementsFn,
   TSnapshot,
 } from './snapshotManipulation'
 
@@ -58,7 +58,7 @@ export function CanvasForRect({
   renderCanvas,
   currentSnapshot,
   commitNewSnapshot,
-  replaceCurrentSnapshotByReplacingElements,
+  replaceCurrentSnapshotByModifyingElements,
   viewportCoordsToSceneCoords,
 }: {
   renderCanvas: (arg: {
@@ -68,7 +68,7 @@ export function CanvasForRect({
   }) => React.ReactElement
   currentSnapshot: TSnapshot
   commitNewSnapshot: TCommitNewSnapshotFn
-  replaceCurrentSnapshotByReplacingElements: (arg: TReplaceCurrentSnapshotParam) => void
+  replaceCurrentSnapshotByModifyingElements: TReplaceCurrentSnapshotByModifyingElementsFn
   viewportCoordsToSceneCoords: (arg: { viewportX: number; viewportY: number }) => {
     sceneX: number
     sceneY: number
@@ -148,9 +148,9 @@ export function CanvasForRect({
         height: sceneY - y1,
       })
 
-      replaceCurrentSnapshotByReplacingElements({
-        replacedElement: { ...newElementWithoutId, id: uiState.data.elementId },
-      })
+      replaceCurrentSnapshotByModifyingElements([
+        { ...newElementWithoutId, id: uiState.data.elementId },
+      ])
       return
     }
   }
@@ -183,9 +183,9 @@ export function CanvasForRect({
         width: newX2 - newX1,
         height: newY2 - newY1,
       })
-      replaceCurrentSnapshotByReplacingElements({
-        replacedElement: { ...newElementWithoutId, id: uiState.data.elementId },
-      })
+      replaceCurrentSnapshotByModifyingElements([
+        { ...newElementWithoutId, id: uiState.data.elementId },
+      ])
       setUiState({ state: 'none' })
       return
     }

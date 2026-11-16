@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>History hook tests</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      import { createElement, StrictMode, useLayoutEffect } from 'react'
+      import { createRoot } from 'react-dom/client'
+      import { useHistory } from '/src/snapshotManipulation.ts'
+
+      function HistoryHarness() {
+        const history = useHistory()
+        useLayoutEffect(() => { window.historyTest = history })
+        return null
+      }
+
+      createRoot(document.getElementById('root')).render(
+        createElement(StrictMode, null, createElement(HistoryHarness)),
+      )
+    </script>
+  </body>
+</html>

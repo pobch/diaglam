@@ -6,7 +6,7 @@ import {
   getSingleElementInSnapshot,
   TCommitNewSnapshotFn,
   TElementData,
-  TReplaceCurrentSnapshotParam,
+  TReplaceCurrentSnapshotByModifyingElementsFn,
   TSnapshot,
 } from './snapshotManipulation'
 import { CONFIG } from './config'
@@ -107,7 +107,7 @@ export function CanvasForLinear({
   renderCanvas,
   currentSnapshot,
   commitNewSnapshot,
-  replaceCurrentSnapshotByReplacingElements,
+  replaceCurrentSnapshotByModifyingElements,
   viewportCoordsToSceneCoords,
   lineType,
 }: {
@@ -118,7 +118,7 @@ export function CanvasForLinear({
   }) => React.ReactElement
   currentSnapshot: TSnapshot
   commitNewSnapshot: TCommitNewSnapshotFn
-  replaceCurrentSnapshotByReplacingElements: (arg: TReplaceCurrentSnapshotParam) => void
+  replaceCurrentSnapshotByModifyingElements: TReplaceCurrentSnapshotByModifyingElementsFn
   viewportCoordsToSceneCoords: (arg: { viewportX: number; viewportY: number }) => {
     sceneX: number
     sceneY: number
@@ -204,9 +204,9 @@ export function CanvasForLinear({
         y2: sceneY,
       })
 
-      replaceCurrentSnapshotByReplacingElements({
-        replacedElement: { ...newElementWithoutId, id: uiState.data.elementId },
-      })
+      replaceCurrentSnapshotByModifyingElements([
+        { ...newElementWithoutId, id: uiState.data.elementId },
+      ])
       return
     }
   }

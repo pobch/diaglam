@@ -5,7 +5,7 @@ import {
   getMultiElementsInSnapshot,
   TCommitNewSnapshotFn,
   TElementData,
-  TReplaceCurrentSnapshotParam,
+  TReplaceCurrentSnapshotByModifyingElementsFn,
   TSnapshot,
 } from './snapshotManipulation'
 import rough from 'roughjs/bundled/rough.esm'
@@ -56,7 +56,7 @@ export function CanvasForSelection({
   renderCanvas,
   currentSnapshot,
   commitNewSnapshot,
-  replaceCurrentSnapshotByReplacingElements,
+  replaceCurrentSnapshotByModifyingElements,
   viewportCoordsToSceneCoords,
   drawScene,
 }: {
@@ -69,7 +69,7 @@ export function CanvasForSelection({
   }) => React.ReactElement
   currentSnapshot: TSnapshot
   commitNewSnapshot: TCommitNewSnapshotFn
-  replaceCurrentSnapshotByReplacingElements: (arg: TReplaceCurrentSnapshotParam) => void
+  replaceCurrentSnapshotByModifyingElements: TReplaceCurrentSnapshotByModifyingElementsFn
   viewportCoordsToSceneCoords: (arg: { viewportX: number; viewportY: number }) => {
     sceneX: number
     sceneY: number
@@ -86,7 +86,7 @@ export function CanvasForSelection({
   const { uiState, actions } = useSelectionMachine({
     currentSnapshot,
     commitNewSnapshot,
-    replaceCurrentSnapshotByReplacingElements,
+    replaceCurrentSnapshotByModifyingElements,
     canvasForMeasureRef,
   })
 

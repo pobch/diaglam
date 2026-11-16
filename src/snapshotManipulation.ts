@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useReducer, useRef } from 'react'
+import { ImageAsset } from './imageAsset'
 import { Drawable } from 'roughjs/bin/core'
 
 export type TElementData =
@@ -35,163 +36,210 @@ export type TElementData =
       y1: number
       x2: number
       y2: number
-      data: ImageBitmap
+      data: ImageAsset
     }
 
 export type TSnapshot = TElementData[]
 
-type DistributiveOmit<T, K extends PropertyKey> = T extends any ? Omit<T, K> : never
+type THistoryState = {
+  history: TSnapshot[]
+  currentIndex: number
+}
 
-type TCommitNewSnapshotParam =
-  | { mode: 'clone' }
-  | { mode: 'addElements'; newElementWithoutIds: DistributiveOmit<TElementData, 'id'>[] }
-  | { mode: 'removeElements'; elementIds: number[] }
-  | { mode: 'removeAllElement' }
-  | { mode: 'modifyElement'; modifiedElement: TElementData }
-export type TReplaceCurrentSnapshotParam = {
-  replacedElement?: TElementData
-  replacedMultiElements?: TElementData[]
+type THistoryAction =
+  | { type: 'replaceEntireHistory'; history: TSnapshot[] }
+  | { type: 'undo' | 'redo' }
+  | { type: 'loadSnapshot'; snapshot: TSnapshot }
+
+function historyReducer(state: THistoryState, action: THistoryAction): THistoryState {
+  switch (action.type) {
+    case 'replaceEntireHistory':
+      return { history: action.history, currentIndex: action.history.length - 1 }
+    case 'undo':
+    case 'redo': {
+      const offset = action.type === 'undo' ? -1 : 1
+      const currentIndex = Math.max(
+        0,
+        Math.min(state.history.length - 1, state.currentIndex + offset)
+      )
+      return currentIndex === state.currentIndex ? state : { ...state, currentIndex }
+    }
+    case 'loadSnapshot':
+      return { history: [state.history[state.currentIndex]!, action.snapshot], currentIndex: 1 }
+  }
+}
+
+let lastElementId = 0
+function nextElementId() {
+  lastElementId += 1
+  return lastElementId
+}
+
+function closeDiscardedBitmaps(discardedSnapshots: TSnapshot[], remainingSnapshots: TSnapshot[]) {
+  const discardedBitmaps = new Set<ImageBitmap>()
+  for (const snapshot of discardedSnapshots) {
+    for (const element of snapshot) {
+      if (element.type === 'image') discardedBitmaps.add(element.data.bitmap)
+    }
+  }
+  if (discardedBitmaps.size === 0) return
+
+  for (const snapshot of remainingSnapshots) {
+    for (const element of snapshot) {
+      if (element.type === 'image') discardedBitmaps.delete(element.data.bitmap)
+    }
+    if (discardedBitmaps.size === 0) return
+  }
+  for (const bitmap of discardedBitmaps) bitmap.close()
 }
 
 export function useHistory() {
-  // TODO: Combine these states into a single object OR use useReducer(). This will
-  // ... also help to avoid calling setCurrentIndex inside setHistory updater function.
-  const [history, setHistory] = useState<TSnapshot[]>([[]])
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const currentSnapshot = history[currentIndex]
-  if (!currentSnapshot) {
-    throw new Error('The whole current snapshot is not exist in this point of history!!')
+  const [historyState, dispatch] = useReducer(historyReducer, {
+    history: [[]],
+    currentIndex: 0,
+  })
+  const { history, currentIndex } = historyState
+  const currentSnapshot = history[currentIndex]!
+
+  // Actions can run multiple times before the next render, so we save the latest state in ref.
+  // It can be used outside state updaters and reducer.
+  const latestHistoryState = useRef(historyState)
+
+  function dispatchWithEffects(action: THistoryAction, discardedSnapshots?: TSnapshot[]) {
+    const previous = latestHistoryState.current
+    const next = historyReducer(previous, action)
+    if (next === previous) return
+    latestHistoryState.current = next
+    dispatch(action)
+
+    // Close bitmaps (run side-effects)
+    if (discardedSnapshots?.length) {
+      closeDiscardedBitmaps(discardedSnapshots, next.history)
+    }
   }
 
-  function commitNewSnapshot(options: TCommitNewSnapshotParam) {
-    if (!currentSnapshot) {
-      throw new Error('The whole current snapshot is not exist in this point of history!!')
-    }
-    let newSnapshot: TSnapshot = []
-    if (options.mode === 'clone') {
-      newSnapshot = [...currentSnapshot]
-    } else if (options.mode === 'addElements') {
-      const newElements = options.newElementWithoutIds.map((newElementWithoutId, i) => {
-        return {
-          ...newElementWithoutId,
-          // Also plus a unique number to prevent the case that multiple elements get the same id
-          id: Date.now() + i,
-        }
-      })
-      newSnapshot = [...currentSnapshot, ...newElements]
-    } else if (options.mode === 'removeElements') {
-      newSnapshot = [...currentSnapshot]
-      let willRemoveIdsMap: Record<number, boolean> = {}
-      options.elementIds.forEach((elementId) => {
-        willRemoveIdsMap[elementId] = true
-      })
-      newSnapshot = newSnapshot.filter((element) => {
-        return !willRemoveIdsMap[element.id]
-      })
-    } else if (options.mode === 'removeAllElement') {
-      newSnapshot = []
-    } else if (options.mode === 'modifyElement') {
-      newSnapshot = [...currentSnapshot]
-      const index = newSnapshot.findIndex((element) => element.id === options.modifiedElement.id)
-      newSnapshot[index] = { ...options.modifiedElement }
-    }
-    setHistory((prevHistory) => {
-      const newHistory = [...prevHistory.slice(0, currentIndex + 1), newSnapshot]
-      setCurrentIndex(newHistory.length - 1)
-      return newHistory
-    })
+  type DistributiveOmit<T, K extends PropertyKey> = T extends any ? Omit<T, K> : never
 
-    // for "addElements" mode, we also return an array of new element's id
-    if (options.mode === 'addElements') {
-      const lastElementsInNewSnapshot = newSnapshot.slice(-options.newElementWithoutIds.length)
-      return lastElementsInNewSnapshot.map((element) => element.id)
+  function commitNewSnapshot(
+    options:
+      | { mode: 'clone' }
+      | { mode: 'addElements'; newElementWithoutIds: DistributiveOmit<TElementData, 'id'>[] }
+      | { mode: 'removeElements'; elementIds: number[] }
+      | { mode: 'removeAllElements' }
+      | { mode: 'modifyElement'; modifiedElement: TElementData }
+  ) {
+    const newElements =
+      options.mode === 'addElements'
+        ? options.newElementWithoutIds.map((element) => ({
+            ...element,
+            id: nextElementId(),
+          }))
+        : []
+    const { history, currentIndex } = latestHistoryState.current
+    const snapshot = history[currentIndex]!
+    let newSnapshot: TSnapshot
+    switch (options.mode) {
+      case 'clone':
+        newSnapshot = [...snapshot]
+        break
+      case 'addElements':
+        newSnapshot = [...snapshot, ...newElements]
+        break
+      case 'removeElements': {
+        const removedIds = new Set(options.elementIds)
+        newSnapshot = snapshot.filter((element) => !removedIds.has(element.id))
+        break
+      }
+      case 'removeAllElements':
+        newSnapshot = []
+        break
+      case 'modifyElement':
+        newSnapshot = snapshot.map((element) => {
+          if (element.id !== options.modifiedElement.id) return element
+          return { ...options.modifiedElement }
+        })
+        break
     }
+    const remainingSnapshots = history.slice(0, currentIndex + 1)
+    const discardedSnapshots = history.slice(currentIndex + 1)
+    dispatchWithEffects(
+      { type: 'replaceEntireHistory', history: [...remainingSnapshots, newSnapshot] },
+      discardedSnapshots
+    )
+    if (options.mode === 'addElements') return newElements.map((element) => element.id)
     return
   }
 
-  function replaceCurrentSnapshotByReplacingElements({
-    replacedElement,
-    replacedMultiElements,
-  }: TReplaceCurrentSnapshotParam) {
-    if (!currentSnapshot) {
-      throw new Error('The whole current snapshot is not exist in this point of history!!')
-    }
-    if (replacedElement && replacedMultiElements) {
-      throw new Error('This function cannot receive both arguments at the same time')
-    }
-    if (!replacedElement && !replacedMultiElements) {
-      throw new Error('This function requires at least 1 argument')
-    }
-    if (replacedElement) {
-      let newSnapshot = [...currentSnapshot]
-      const index = newSnapshot.findIndex((element) => element.id === replacedElement.id)
-      newSnapshot[index] = { ...replacedElement }
-      setHistory((prevHistory) => [...prevHistory.slice(0, currentIndex), newSnapshot])
-      return
-    }
-    if (replacedMultiElements) {
-      let newSnapshot = [...currentSnapshot]
-      const willReplaceElementsMap = replacedMultiElements.reduce((prev, element) => {
-        prev[element.id] = { ...element }
-        return prev
-      }, {} as Record<number, TElementData>)
-      newSnapshot = newSnapshot.map((element) => {
-        const willReplaceElement = willReplaceElementsMap[element.id]
-        if (willReplaceElement) {
-          return { ...willReplaceElement }
-        }
-        return element
-      })
-      setHistory((prevHistory) => [...prevHistory.slice(0, currentIndex), newSnapshot])
-      return
-    }
+  function replaceCurrentSnapshotByModifyingElements(elements: TElementData[]) {
+    if (elements.length === 0) return
+    const replacements = new Map(elements.map((element) => [element.id, element]))
+    const { history, currentIndex } = latestHistoryState.current
+    let currentSnapshotMayLoseImageReferences = false
+    const newSnapshot = history[currentIndex]!.map((element) => {
+      const replacement = replacements.get(element.id)
+      if (!replacement) return element
+      if (
+        element.type === 'image' &&
+        (replacement.type !== 'image' || replacement.data.bitmap !== element.data.bitmap)
+      ) {
+        currentSnapshotMayLoseImageReferences = true
+      }
+      return { ...replacement }
+    })
+    const cleanupStartIndex = currentSnapshotMayLoseImageReferences ? currentIndex : currentIndex + 1
+    dispatchWithEffects(
+      { type: 'replaceEntireHistory', history: [...history.slice(0, currentIndex), newSnapshot] },
+      history.slice(cleanupStartIndex)
+    )
   }
 
   function replaceCurrentSnapshotByRemovingElement(elementIdToRemove: number) {
-    if (!currentSnapshot) {
-      throw new Error('The whole current snapshot is not exist in this point of history!!')
-    }
-    let newSnapshot = [...currentSnapshot]
-    const index = newSnapshot.findIndex((element) => element.id === elementIdToRemove)
-    newSnapshot.splice(index, 1)
-    setHistory((prevHistory) => [...prevHistory.slice(0, currentIndex), newSnapshot])
-    return
+    const { history, currentIndex } = latestHistoryState.current
+    let currentSnapshotMayLoseImageReferences = false
+    const newSnapshot = history[currentIndex]!.filter((element) => {
+      if (element.id !== elementIdToRemove) return true
+      if (element.type === 'image') currentSnapshotMayLoseImageReferences = true
+      return false
+    })
+    const cleanupStartIndex = currentSnapshotMayLoseImageReferences ? currentIndex : currentIndex + 1
+    dispatchWithEffects(
+      { type: 'replaceEntireHistory', history: [...history.slice(0, currentIndex), newSnapshot] },
+      history.slice(cleanupStartIndex)
+    )
   }
 
   function undo() {
-    setCurrentIndex((prev) => {
-      return prev >= 1 ? prev - 1 : 0
-    })
+    dispatchWithEffects({ type: 'undo' })
   }
 
   function redo() {
-    setCurrentIndex((prev) => {
-      return prev <= history.length - 2 ? prev + 1 : history.length - 1
-    })
+    dispatchWithEffects({ type: 'redo' })
   }
 
-  // for debugging purpose, can remove this anytime
-  // not support image element
-  function DEBUG_importSnapshot(newSnapshot: TSnapshot) {
-    setHistory((prevHistory) => {
-      const newHistory = [...prevHistory.slice(0, currentIndex + 1), newSnapshot]
-      setCurrentIndex(newHistory.length - 1)
-      return newHistory
-    })
+  function loadSnapshot(newSnapshot: TSnapshot) {
+    const { history, currentIndex } = latestHistoryState.current
+    const snapshot = newSnapshot.map((element) => ({ ...element, id: nextElementId() }))
+    dispatchWithEffects(
+      { type: 'loadSnapshot', snapshot },
+      history.filter((_, index) => index !== currentIndex)
+    )
   }
 
   return {
     currentSnapshot,
     commitNewSnapshot,
-    replaceCurrentSnapshotByReplacingElements,
+    replaceCurrentSnapshotByModifyingElements,
     replaceCurrentSnapshotByRemovingElement,
     undo,
     redo,
-    DEBUG_importSnapshot,
+    loadSnapshot,
   }
 }
 
 export type TCommitNewSnapshotFn = ReturnType<typeof useHistory>['commitNewSnapshot']
+export type TReplaceCurrentSnapshotByModifyingElementsFn = ReturnType<
+  typeof useHistory
+>['replaceCurrentSnapshotByModifyingElements']
 
 export function getSingleElementInSnapshot({
   snapshot,
@@ -210,10 +258,13 @@ export function getMultiElementsInSnapshot({
   snapshot: TSnapshot
   elementIds: number[]
 }): TElementData[] {
-  const elementIdsMap = elementIds.reduce((prev, elementId) => {
-    prev[elementId] = true
-    return prev
-  }, {} as { [elementId: number]: boolean })
+  const elementIdsMap = elementIds.reduce(
+    (prev, elementId) => {
+      prev[elementId] = true
+      return prev
+    },
+    {} as { [elementId: number]: boolean }
+  )
   const foundElementsInSnapshot = snapshot.filter((element) => {
     return elementIdsMap[element.id]
   })
