@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@zip.js/zip.js": "^2.24.0",
     "perfect-freehand": "^1.1.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

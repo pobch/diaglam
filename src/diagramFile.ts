@@ -1,10 +1,17 @@
+import type { FileEntry } from '@zip.js/zip.js'
 import { Drawable } from 'roughjs/bin/core'
 import { ImageAsset, imageMimeType, MAX_IMAGE_SIDE } from './imageAsset'
 import { TElementData, TSnapshot } from './snapshotManipulation'
 
 type ImageElement = Extract<TElementData, { type: 'image' }>
 type StoredElement = Exclude<TElementData, ImageElement> | (Omit<ImageElement, 'data'> & { assetId: string })
-type StoredAsset = { mimeType: string; base64: string }
+const ZIP_MIME_TYPE = 'application/zip'
+const MANIFEST_PATH = 'diagram.json'
+const DIAGRAM_VERSION = 2
+
+function assetPath(id: string, mimeType: string) {
+  return `assets/${id}.${mimeType.slice('image/'.length)}`
+}
 
 function invalid(): never {
   throw new Error('This file contains an invalid diagram element or image.')
@@ -121,18 +128,9 @@ function element(value: unknown): StoredElement {
   }
 }
 
-async function encodeBlob(blob: Blob): Promise<string> {
-  const bytes = new Uint8Array(await blob.arrayBuffer())
-  const chunks: string[] = []
-  for (let i = 0; i < bytes.length; i += 32768) {
-    chunks.push(String.fromCharCode(...bytes.subarray(i, i + 32768)))
-  }
-  return btoa(chunks.join(''))
-}
-
 export async function serializeDiagram(snapshot: TSnapshot): Promise<Blob> {
   const assetIds = new Map<ImageAsset, string>()
-  const assets: Record<string, StoredAsset> = {}
+  const assets: Record<string, { mimeType: string }> = {}
   const elements: StoredElement[] = []
   for (const item of snapshot) {
     if (item.type === 'image') {
@@ -140,7 +138,7 @@ export async function serializeDiagram(snapshot: TSnapshot): Promise<Blob> {
       if (!assetId) {
         assetId = `image-${assetIds.size + 1}`
         assetIds.set(item.data, assetId)
-        assets[assetId] = { mimeType: item.data.blob.type, base64: await encodeBlob(item.data.blob) }
+        assets[assetId] = { mimeType: item.data.blob.type }
       }
       const { data: _data, ...properties } = item
       elements.push({ ...properties, assetId })
@@ -156,38 +154,46 @@ export async function serializeDiagram(snapshot: TSnapshot): Promise<Blob> {
       elements.push(item.type === 'text' ? { ...item, isWriting: false } : item)
     }
   }
-  return new Blob([JSON.stringify({ format: 'diaglam', version: 1, elements, assets })], { type: 'application/json' })
+  const { ZipWriter, BlobReader, BlobWriter, TextReader } = await import('@zip.js/zip.js/lib/zip-core-custom.js')
+  // Images are already encoded. Stored entries avoid ZIP decompression during import.
+  const zip = new ZipWriter(new BlobWriter(ZIP_MIME_TYPE), { level: 0, useWebWorkers: false })
+  const manifest = JSON.stringify({ format: 'diaglam', version: DIAGRAM_VERSION, elements, assets })
+  await zip.add(MANIFEST_PATH, new TextReader(manifest))
+  for (const [asset, id] of assetIds) {
+    await zip.add(assetPath(id, asset.blob.type), new BlobReader(asset.blob))
+  }
+  return zip.close()
 }
 
-export async function parseDiagram(file: File): Promise<TSnapshot> {
-  if (!/\.diaglam$/i.test(file.name)) throw new Error('Select a file with the .diaglam extension.')
-  let value: unknown
+function parseManifest(text: string): unknown {
   try {
-    value = JSON.parse(await file.text())
+    return JSON.parse(text)
   } catch {
     throw new Error('This file does not contain valid JSON.')
   }
+}
+
+async function parseSnapshot(value: unknown, archive: Map<string, FileEntry>): Promise<TSnapshot> {
   const document = record(value)
   if (document.format !== 'diaglam') throw new Error('This file is not a Diaglam diagram.')
-  if (document.version !== 1) throw new Error('This diagram version is not supported.')
+  if (document.version !== DIAGRAM_VERSION) throw new Error('This diagram version is not supported.')
   const elements = array(document.elements).map(element)
   if (new Set(elements.map((item) => item.id)).size !== elements.length) invalid()
   const storedAssets = record(document.assets)
   const referencedIds = new Set(elements.flatMap((item) => item.type === 'image' ? [item.assetId] : []))
   if (referencedIds.size !== Object.keys(storedAssets).length) invalid()
+  if (archive.size !== referencedIds.size) invalid()
   const assets = new Map<string, ImageAsset>()
   try {
     // Decode each asset once, even if many elements refer to it.
     for (const id of referencedIds) {
-      if (!Object.hasOwn(storedAssets, id)) invalid()
+      if (!/^image-[1-9]\d*$/.test(id) || !Object.hasOwn(storedAssets, id)) invalid()
       const stored = record(storedAssets[id])
       const mimeType = string(stored.mimeType)
       if (!['image/png', 'image/jpeg', 'image/webp'].includes(mimeType)) invalid()
-      const base64 = string(stored.base64)
-      if (!base64 || base64.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(base64)) invalid()
-      const binary = atob(base64)
-      const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0))
-      const blob = new Blob([bytes], { type: mimeType })
+      const entry = archive.get(assetPath(id, mimeType))
+      if (!entry) invalid()
+      const blob = new Blob([await entry.arrayBuffer()], { type: mimeType })
       if (await imageMimeType(blob) !== mimeType) invalid()
       const bitmap = await createImageBitmap(blob)
       if (Math.max(bitmap.width, bitmap.height) > MAX_IMAGE_SIDE) {
@@ -204,6 +210,35 @@ export async function parseDiagram(file: File): Promise<TSnapshot> {
   } catch (error) {
     for (const asset of assets.values()) asset.bitmap.close()
     throw error instanceof Error ? error : new Error('Cannot open an image in this diagram.')
+  }
+}
+
+export async function parseDiagram(file: File): Promise<TSnapshot> {
+  if (!/\.diaglam$/i.test(file.name)) throw new Error('Select a file with the .diaglam extension.')
+  const { ZipReader, BlobReader, TextWriter } = await import('@zip.js/zip.js/lib/zip-core-custom.js')
+  const zip = new ZipReader(new BlobReader(file), {
+    useWebWorkers: false, checkCrc32: true, checkOverlappingEntry: true,
+  })
+  try {
+    const archive = new Map<string, FileEntry>()
+    let manifest: string
+    try {
+      for (const entry of await zip.getEntries()) {
+        if (entry.directory || entry.encrypted || entry.compressionMethod !== 0 ||
+            entry.compressedSize !== entry.uncompressedSize || entry.compressedSize > file.size ||
+            archive.has(entry.filename)) invalid()
+        archive.set(entry.filename, entry)
+      }
+      const entry = archive.get(MANIFEST_PATH)
+      if (!entry) invalid()
+      manifest = await entry.getData(new TextWriter())
+    } catch {
+      throw new Error('This file does not contain a valid Diaglam ZIP archive.')
+    }
+    archive.delete(MANIFEST_PATH)
+    return await parseSnapshot(parseManifest(manifest), archive)
+  } finally {
+    await zip.close()
   }
 }
 
@@ -230,7 +265,7 @@ export async function saveDiagram(snapshot: TSnapshot, filename: string, picker?
   // Invoke the native picker before awaiting serialization to retain user activation.
   const handle = picker ? await picker({
     suggestedName: diagramFilename(filename),
-    types: [{ description: 'Diaglam diagram', accept: { 'application/json': ['.diaglam'] } }],
+    types: [{ description: 'Diaglam diagram', accept: { [ZIP_MIME_TYPE]: ['.diaglam'] } }],
   }) : undefined
   const blob = await serializeDiagram(snapshot)
   if (handle) {

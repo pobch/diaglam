@@ -1,5 +1,6 @@
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024
-export const MAX_IMAGE_SIDE = 2000
+export const MAX_IMAGE_SIDE = 1500
+const RESIZED_JPEG_QUALITY = 0.85
 
 // Elements and history entries share this immutable object. Moving, resizing,
 // and duplicating an element must not copy or resample its image.
@@ -43,18 +44,17 @@ export async function prepareUploadedImage(file: File): Promise<ImageAsset> {
     const context = canvas.getContext('2d')
     if (!context) throw new Error('Cannot resize this image.')
     context.drawImage(resized, 0, 0)
-    // PNG avoids another lossy compression step and preserves transparency.
+    // Keep photos compact and preserve transparency in PNG and WebP uploads.
+    const resizedType = type === 'image/jpeg' ? 'image/jpeg' : 'image/png'
     const resizedBlob = await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob((result) => {
         if (result) resolve(result)
         else reject(new Error('Cannot resize this image.'))
-      }, 'image/png')
+      }, resizedType, RESIZED_JPEG_QUALITY)
     })
-    return { blob: resizedBlob, bitmap: resized }
-  } catch (error) {
-    resized?.close()
-    throw error
+    return { blob: resizedBlob, bitmap: await createImageBitmap(resizedBlob) }
   } finally {
+    resized?.close()
     bitmap.close()
   }
 }

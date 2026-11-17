@@ -4,14 +4,14 @@
 
 - Use the vertical three-dot **More** button in the footer. **Import** and **Export** open above it.
 - Export saves the current drawing as `untitled.diaglam`. Change the name in the native Save dialog, or in the filename dialog on browsers without native file saving.
-- `.diaglam` files contain JSON with `format: "diaglam"`, `version: <number>`, an `elements` array, and an `assets` object. Each image asset has a MIME type and base64 bytes. Multiple elements can reference one asset by `assetId`.
-- Import accepts the extension case-insensitively. It validates all elements and images before changing the drawing. Unsupported versions and invalid files show an error modal. Use **Close** or the browser's built-in **Escape** behavior to dismiss it. Selecting the same invalid file again must show the error again.
+- Export writes a version 2 `.diaglam` ZIP archive with stored entries. `diagram.json` contains `format: "diaglam"`, `version: 2`, an `elements` array, and an `assets` object that records the MIME type of each image. The archive stores the encoded image bytes under `assets/<assetId>.<extension>`. Multiple elements can reference one asset by `assetId`.
+- Import accepts version 2 ZIP archives with a case-insensitive `.diaglam` extension. It validates all elements and images before changing the drawing. Unsupported versions and invalid files show an error modal. Use **Close** or the browser's built-in **Escape** behavior to dismiss it. Selecting the same invalid file again must show the error again.
 - Import assigns fresh element IDs, replaces the drawing, and clears older history, except the latest one. One **Undo** restores the drawing from before the import; **Redo** restores the imported drawing. Zoom and pan levels do not change.
 
 ## Image tool
 
-- Upload accepts PNG, JPEG, and WebP images up to 10 MiB (10,485,760 bytes). Images with a side larger than 2,000 pixels are reduced so that the longest side is 2,000 pixels, with the same aspect ratio, and stored as lossless PNG. Smaller images keep their original bytes.
-- Canvas resizing does not resample image pixels. Snapshots and duplicated elements share each image's blob and bitmap. Base64 exists only during file processing. Decoded bitmaps are closed when no history entry needs them.
+- Upload accepts PNG, JPEG, and WebP images up to 10 MiB (10,485,760 bytes). Images with a side larger than 1,500 pixels are resized to fit within 1,500 pixels on their longest side, with the same aspect ratio. Resized JPEG images use JPEG at quality 0.85. Resized PNG and WebP images use PNG to preserve transparency. Smaller images keep their original bytes.
+- Canvas resizing does not resample image pixels. Snapshots and duplicated elements share each image's blob and bitmap. Decoded bitmaps are closed when no history entry needs them.
 
 ## History
 

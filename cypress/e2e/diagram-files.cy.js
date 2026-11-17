@@ -1,3 +1,4 @@
+import { TextReader, Uint8ArrayReader, Uint8ArrayWriter, ZipWriter } from '@zip.js/zip.js'
 import {
   dragCanvas, exportDrawing, imageFile, installSavePicker, uploadImage,
 } from '../e2e-helpers/diagramFiles'
@@ -8,15 +9,30 @@ function openImportMenu() {
   cy.findByRole('button', { name: 'Import' }).click()
 }
 
-function importDocument(document, name = 'drawing.diaglam') {
+function importDiagramBytes(contents, name = 'drawing.diaglam') {
   openImportMenu()
-  cy.get('input[aria-label="Import diagram"]').selectFile({
-    contents: Cypress.Buffer.from(JSON.stringify(document)), fileName: name,
-  }, { force: true })
+  cy.get('input[aria-label="Import diagram"]').selectFile({ contents, fileName: name }, { force: true })
   cy.findByRole('button', { name: 'More' }).should('not.be.disabled')
 }
 
-const emptyDocument = { format: 'diaglam', version: 1, elements: [], assets: {} }
+async function zipFixture(manifest, assets = {}) {
+  const zip = new ZipWriter(new Uint8ArrayWriter(), { level: 0, useWebWorkers: false })
+  await zip.add('diagram.json', new TextReader(manifest))
+  for (const [id, { mimeType, bytes }] of Object.entries(assets)) {
+    await zip.add(`assets/${id}.${mimeType.split('/')[1]}`, new Uint8ArrayReader(bytes))
+  }
+  return Cypress.Buffer.from(await zip.close())
+}
+
+function importDocument(document, name) {
+  const assets = Object.fromEntries(Object.entries(document.assets).map(([id, { mimeType }]) => [
+    id, { mimeType },
+  ]))
+  const manifest = JSON.stringify({ ...document, assets })
+  cy.then(() => zipFixture(manifest, document.assets)).then((bytes) => importDiagramBytes(bytes, name))
+}
+
+const emptyDocument = { format: 'diaglam', version: 2, elements: [], assets: {} }
 const pencil = { id: 1, type: 'pencil', points: [{ x: 150, y: 150 }, { x: 200, y: 200 }] }
 
 it('toggles the file actions and dismisses them on outside clicks', () => {
@@ -50,9 +66,9 @@ it('round trips every element type and stores duplicated images only once', () =
   cy.findByRole('img', { name: 'duplicate' }).click()
   exportDrawing(saves).then((document) => {
     expect(saves[0].options.suggestedName).to.equal('untitled.diaglam')
-    expect(saves[0].options.types[0].accept['application/json']).to.deep.equal(['.diaglam'])
+    expect(saves[0].options.types[0].accept['application/zip']).to.deep.equal(['.diaglam'])
     expect(document.format).to.equal('diaglam')
-    expect(document.version).to.equal(1)
+    expect(document.version).to.equal(2)
     expect(document.elements.map((element) => element.type)).to.include.members(['line', 'rectangle', 'text', 'arrow', 'pencil', 'image'])
     const images = document.elements.filter((element) => element.type === 'image')
     expect(images).to.have.length(2)
@@ -63,12 +79,32 @@ it('round trips every element type and stores duplicated images only once', () =
     cy.window().then((win) => {
       cy.spy(win, 'createImageBitmap').as('decodeImportedImages')
     })
-    importDocument(document, 'RESTORED.DIAGLAM')
+    cy.then(async () => Cypress.Buffer.from(await saves[0].blob.arrayBuffer())).then((bytes) => {
+      expect(bytes.subarray(0, 4).toString('hex')).to.equal('504b0304')
+      importDiagramBytes(bytes.subarray(0, 32))
+      cy.findByRole('dialog').should('contain.text', 'valid Diaglam ZIP archive')
+      cy.findByRole('button', { name: 'Close' }).click()
+      const imageBytes = document.assets[images[0].assetId].bytes
+      const offset = bytes.indexOf(imageBytes)
+      expect(offset).to.be.greaterThan(0)
+      const corrupted = Cypress.Buffer.from(bytes)
+      corrupted[offset + imageBytes.length - 1] ^= 1
+      importDiagramBytes(corrupted)
+      cy.findByRole('dialog').should('contain.text', 'Invalid CRC32')
+      cy.findByRole('button', { name: 'Close' }).click()
+      importDiagramBytes(bytes, 'RESTORED.DIAGLAM')
+    })
     cy.get('@decodeImportedImages').should('have.been.calledOnce')
     cy.compareSnapshot('restored-images', {
       clip: { x: 90, y: 90, width: 60, height: 100 },
     })
   })
+})
+
+it('rejects version 1 JSON files', () => {
+  cy.visit('/')
+  importDiagramBytes(Cypress.Buffer.from(JSON.stringify({ ...emptyDocument, version: 1 })))
+  cy.findByRole('dialog').should('contain.text', 'valid Diaglam ZIP archive')
 })
 
 it('keeps only one undo step after import and preserves zoom and pan', () => {
@@ -104,7 +140,7 @@ it('does not change the drawing or history when any part of an import is invalid
   importDocument({ ...emptyDocument, elements: [pencil] })
   for (const [document, name] of [
     [emptyDocument, 'wrong.json'],
-    [{ ...emptyDocument, version: 2 }, 'wrong.diaglam'],
+    [{ ...emptyDocument, version: 3 }, 'wrong.diaglam'],
     [{ ...emptyDocument, elements: [pencil, { ...pencil }] }, 'wrong.diaglam'],
     [{ ...emptyDocument, elements: [{ ...pencil, type: 'unknown' }] }, 'wrong.diaglam'],
     [{ ...emptyDocument, elements: [{ id: 2, type: 'image', x1: 1, y1: 1, x2: 40, y2: 30, assetId: 'missing' }] }, 'wrong.diaglam'],
@@ -115,8 +151,7 @@ it('does not change the drawing or history when any part of an import is invalid
     cy.findByRole('button', { name: 'Close' }).click()
     exportDrawing(saves).its('elements').should('deep.equal', [pencil])
   }
-  openImportMenu()
-  cy.get('input[aria-label="Import diagram"]').selectFile({ contents: Cypress.Buffer.from('{'), fileName: 'broken.diaglam' }, { force: true })
+  cy.then(() => zipFixture('{')).then((bytes) => importDiagramBytes(bytes))
   cy.findByRole('dialog').should('contain.text', 'valid JSON')
   cy.findByRole('button', { name: 'Close' }).click()
   cy.findByRole('img', { name: 'undo' }).click()
@@ -191,30 +226,30 @@ it('offers a filename fallback and handles native save cancellation and failure'
 it('rejects invalid image data and drawing operations without changing the drawing', () => {
   cy.visit('/')
   const saves = installSavePicker()
-  let oversizedBase64
+  let oversizedBytes
   cy.window().then(async (win) => {
-    const file = await imageFile(win, 5000, 100)
-    return Cypress.Buffer.from(await file.arrayBuffer()).toString('base64')
-  }).then((base64) => { oversizedBase64 = base64 })
+    const file = await imageFile(win, 1501, 100)
+    return Cypress.Buffer.from(await file.arrayBuffer())
+  }).then((bytes) => { oversizedBytes = bytes })
   uploadImage()
   cy.findByRole('img', { name: 'rectangle' }).click()
   dragCanvas({ x: 300, y: 200 }, { x: 400, y: 300 })
   exportDrawing(saves).then((document) => {
     const image = document.elements.find((element) => element.type === 'image')
     const assetId = image.assetId
-    const badBase64 = Cypress._.cloneDeep(document)
-    badBase64.assets[assetId].base64 = 'bad!'
+    const invalidImage = Cypress._.cloneDeep(document)
+    invalidImage.assets[assetId].bytes = Cypress.Buffer.from('bad image data')
     const wrongType = Cypress._.cloneDeep(document)
     wrongType.assets[assetId].mimeType = 'image/jpeg'
     const oversizedImage = Cypress._.cloneDeep(document)
-    oversizedImage.assets[assetId].base64 = oversizedBase64
+    oversizedImage.assets[assetId].bytes = oversizedBytes
     const invalidPrecision = Cypress._.cloneDeep(document)
     invalidPrecision.elements.find((element) => element.type === 'rectangle')
       .roughElements[0].options.fixedDecimalPlaceDigits = 101
     const invalidOperation = Cypress._.cloneDeep(document)
     invalidOperation.elements.find((element) => element.type === 'rectangle')
       .roughElements[0].sets[0].ops[0].data = [1]
-    for (const invalid of [badBase64, wrongType, oversizedImage, invalidPrecision, invalidOperation]) {
+    for (const invalid of [invalidImage, wrongType, oversizedImage, invalidPrecision, invalidOperation]) {
       importDocument(invalid)
       cy.findByRole('dialog').should('be.visible')
       cy.findByRole('button', { name: 'Close' }).click()
@@ -232,8 +267,8 @@ it('rejects invalid image data and drawing operations without changing the drawi
       })
     })
     const partialImport = Cypress._.cloneDeep(document)
-    partialImport.elements.push({ ...image, id: 0, assetId: 'broken-image' })
-    partialImport.assets['broken-image'] = { mimeType: 'image/png', base64: 'bad!' }
+    partialImport.elements.push({ ...image, id: 0, assetId: 'image-2' })
+    partialImport.assets['image-2'] = { mimeType: 'image/png', bytes: Cypress.Buffer.from('bad image data') }
     importDocument(partialImport)
     cy.findByRole('dialog').should('be.visible')
     cy.then(() => {

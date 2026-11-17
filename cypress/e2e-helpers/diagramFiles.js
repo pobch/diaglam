@@ -1,3 +1,5 @@
+import { BlobReader, TextWriter, ZipReader } from '@zip.js/zip.js'
+
 export async function imageFile(win, width = 40, height = 30, type = 'image/png') {
   const canvas = win.document.createElement('canvas')
   canvas.width = width
@@ -80,6 +82,37 @@ export function exportDrawing(saves) {
       expect(items).to.have.length(previousCount + 1)
       expect(items.at(-1)?.closed).to.equal(true)
     })
-    .then((items) => items.at(-1).blob.text())
-    .then(JSON.parse)
+    .then(async (items) => {
+      const blob = items.at(-1).blob
+      expect(blob.type).to.equal('application/zip')
+      const zip = new ZipReader(new BlobReader(blob), { useWebWorkers: false, checkCrc32: true })
+      try {
+        const entries = await zip.getEntries()
+        const manifest = entries.find((entry) => entry.filename === 'diagram.json')
+        const document = JSON.parse(await manifest.getData(new TextWriter()))
+        expect(entries).to.have.length(Object.keys(document.assets).length + 1)
+        for (const [id, asset] of Object.entries(document.assets)) {
+          expect(asset).to.have.all.keys('mimeType')
+          const entry = entries.find((item) => item.filename === `assets/${id}.${asset.mimeType.split('/')[1]}`)
+          asset.bytes = Cypress.Buffer.from(await entry.arrayBuffer())
+        }
+        return document
+      } finally {
+        await zip.close()
+      }
+    })
+}
+
+export function exportedImageSize(document) {
+  return cy.window().then(async (win) => {
+    const image = document.elements.find((element) => element.type === 'image')
+    const asset = document.assets[image.assetId]
+    const blob = new win.Blob([asset.bytes], { type: asset.mimeType })
+    const bitmap = await win.createImageBitmap(blob)
+    try {
+      return { width: bitmap.width, height: bitmap.height }
+    } finally {
+      bitmap.close()
+    }
+  })
 }

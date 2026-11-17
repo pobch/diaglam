@@ -1,20 +1,6 @@
-import { dragCanvas, exportDrawing, installSavePicker, uploadImage } from '../e2e-helpers/diagramFiles'
+import { dragCanvas, exportDrawing, exportedImageSize, installSavePicker, uploadImage } from '../e2e-helpers/diagramFiles'
 
 const uploadArea = { x: 90, y: 90, width: 60, height: 60 }
-
-function exportedImageSize(document) {
-  return cy.window().then(async (win) => {
-    const image = document.elements.find((element) => element.type === 'image')
-    const asset = document.assets[image.assetId]
-    const blob = new win.Blob([Cypress.Buffer.from(asset.base64, 'base64')], { type: asset.mimeType })
-    const bitmap = await win.createImageBitmap(blob)
-    try {
-      return { width: bitmap.width, height: bitmap.height }
-    } finally {
-      bitmap.close()
-    }
-  })
-}
 
 it('rejects images over 10 MiB and shows the error again after native dismissal or Close', () => {
   cy.visit('/')
@@ -55,24 +41,25 @@ for (const type of ['image/png', 'image/jpeg', 'image/webp']) {
         const image = document.elements.find((element) => element.type === 'image')
         const asset = document.assets[image.assetId]
         expect(asset.mimeType).to.equal(type)
-        expect(Cypress.Buffer.from(asset.base64, 'base64')).to.deep.equal(originalBytes)
+        expect(asset.bytes).to.deep.equal(originalBytes)
         exportedImageSize(document).should('deep.equal', { width: 40, height: 30 })
       })
     })
   })
 }
 
-it('limits uploaded image resolution and keeps image bytes after moving and resizing', () => {
+it('limits uploaded JPEG resolution and keeps JPEG bytes after moving and resizing', () => {
   cy.visit('/')
   const saves = installSavePicker()
-  uploadImage(5000, 100)
+  uploadImage(5000, 100, 'image/jpeg')
   cy.compareSnapshot('uploaded-wide-image', { clip: uploadArea })
   let originalAssets
   exportDrawing(saves).then((document) => {
     originalAssets = document.assets
-    exportedImageSize(document).should('deep.equal', { width: 2000, height: 40 })
+    expect(document.assets['image-1'].mimeType).to.equal('image/jpeg')
+    exportedImageSize(document).should('deep.equal', { width: 1500, height: 30 })
   })
-  dragCanvas({ x: 150, y: 120 }, { x: 170, y: 150 })
+  dragCanvas({ x: 150, y: 115 }, { x: 170, y: 145 })
   exportDrawing(saves).then((document) => {
     expect(document.elements[0].x1).to.equal(120)
     expect(document.elements[0].y1).to.equal(130)
@@ -81,18 +68,18 @@ it('limits uploaded image resolution and keeps image bytes after moving and resi
   dragCanvas({ x: 120, y: 130 }, { x: 240, y: 150 })
   exportDrawing(saves).then((document) => {
     const image = document.elements[0]
-    expect(image.x2 - image.x1).to.be.lessThan(2000)
+    expect(image.x2 - image.x1).to.be.lessThan(1500)
     expect(document.assets).to.deep.equal(originalAssets)
-    exportedImageSize(document).should('deep.equal', { width: 2000, height: 40 })
+    exportedImageSize(document).should('deep.equal', { width: 1500, height: 30 })
   })
   cy.findByRole('img', { name: 'undo' }).click()
   exportDrawing(saves).then((document) => {
-    expect(document.elements[0].x2 - document.elements[0].x1).to.equal(2000)
+    expect(document.elements[0].x2 - document.elements[0].x1).to.equal(1500)
     expect(document.assets).to.deep.equal(originalAssets)
   })
   cy.findByRole('img', { name: 'redo' }).click()
   exportDrawing(saves).then((document) => {
-    expect(document.elements[0].x2 - document.elements[0].x1).to.be.lessThan(2000)
+    expect(document.elements[0].x2 - document.elements[0].x1).to.be.lessThan(1500)
     expect(document.assets).to.deep.equal(originalAssets)
   })
 })
@@ -103,7 +90,8 @@ it('limits uploaded image height and keeps the aspect ratio', () => {
   uploadImage(100, 5000)
   cy.compareSnapshot('uploaded-tall-image', { clip: uploadArea })
   exportDrawing(saves).then((document) => {
-    exportedImageSize(document).should('deep.equal', { width: 40, height: 2000 })
+    expect(document.assets['image-1'].mimeType).to.equal('image/png')
+    exportedImageSize(document).should('deep.equal', { width: 30, height: 1500 })
   })
 })
 
